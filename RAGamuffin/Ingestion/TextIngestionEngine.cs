@@ -1,4 +1,7 @@
-﻿using RAGamuffin.Core;
+﻿using RAGamuffin.Abstractions;
+using RAGamuffin.Core;
+using RAGamuffin.Enums;
+using RAGamuffin.Helpers;
 using System.Text;
 using UglyToad.PdfPig;
 

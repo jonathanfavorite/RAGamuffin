@@ -5,7 +5,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using System;
 using System.Text.Json;
-using RAGamuffin.Core;
+using RAGamuffin.Abstractions;
+using RAGamuffin.Helpers;
+using RAGamuffin.VectorStores.Models;
 
 namespace RAGamuffin.VectorStores;
 public class SqliteVectorStoreProvider : IVectorStore

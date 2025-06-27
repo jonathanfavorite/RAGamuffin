@@ -1,4 +1,4 @@
-﻿namespace RAGamuffin.VectorStores;
+﻿namespace RAGamuffin.Abstractions;
 public interface IVectorStore
 {
     Task UpsertAsync(string id, float[] vector, IDictionary<string, object> metaData);

@@ -141,6 +141,10 @@ ChatGPTRequest chatGPTRequest = new()
 
 Console.WriteLine("Waiting for LLM to respond...");
 
+// ##############################
+// RECEIVE LLM RESPONSE
+// ##############################
+
 // Send the request and await the response
 LLMResponse<string> answer = await chatGPTClient.QueryAsync<string>(chatGPTRequest);
 

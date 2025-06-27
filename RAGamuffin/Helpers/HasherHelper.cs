@@ -1,7 +1,7 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
 
-namespace RAGamuffin.Core;
+namespace RAGamuffin.Helpers;
 internal static class HasherHelper
 {
     internal static string ComputeSha256Hash(string text)

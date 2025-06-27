@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.VectorData;
 
-namespace RAGamuffin.VectorStores;
+namespace RAGamuffin.VectorStores.Models;
 internal class MicrosoftVectorRecord
 {
     [VectorStoreKey]

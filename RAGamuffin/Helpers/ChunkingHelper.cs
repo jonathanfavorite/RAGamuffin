@@ -1,4 +1,4 @@
-﻿namespace RAGamuffin.Core;
+﻿namespace RAGamuffin.Helpers;
 internal static class ChunkingHelper
 {
     internal static List<string> ChunkTextFixedSize(string text, int chunkSize = 800, int overlap = 200)

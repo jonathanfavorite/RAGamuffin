@@ -1,6 +1,6 @@
 ﻿using RAGamuffin.Core;
 
-namespace RAGamuffin.Ingestion;
+namespace RAGamuffin.Abstractions;
 public interface IIngestionEngine
 {
     Task<List<IngestedItem>> IngestAsync(string source, IIngestionOptions options, CancellationToken cancellationToken = default);

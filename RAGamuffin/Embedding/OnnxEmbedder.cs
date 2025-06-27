@@ -1,5 +1,7 @@
 ﻿using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
+using RAGamuffin.Abstractions;
+using RAGamuffin.Core;
 using Tokenizers.DotNet;
 
 namespace RAGamuffin.Embedding;
@@ -12,11 +14,10 @@ public class OnnxEmbedder : IEmbedder
     private InferenceSession _session;
     private Tokenizer _tokenizer;
 
-
-    public OnnxEmbedder(string model, string tokenizer)
+    public OnnxEmbedder(OnnxEmbeddingModel model)
     {
-        _session = new InferenceSession(model);
-        _tokenizer = new Tokenizer(tokenizer);
+        _session = new InferenceSession(model.ModelPath);
+        _tokenizer = new Tokenizer(model.TokenizerPath);
     }
 
     public async Task<float[]> EmbedAsync(string text, CancellationToken cancellationToken = default)

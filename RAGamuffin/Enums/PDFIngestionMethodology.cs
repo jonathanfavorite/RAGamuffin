@@ -1,4 +1,4 @@
-﻿namespace RAGamuffin.Core;
+﻿namespace RAGamuffin.Enums;
 public enum PDFIngestionMethodology
 {
     OCR,
