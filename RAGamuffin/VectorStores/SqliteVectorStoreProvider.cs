@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System;
 using System.Text.Json;
+using RAGamuffin.Core;
 
 namespace RAGamuffin.VectorStores;
 public class SqliteVectorStoreProvider : IVectorStore
@@ -12,8 +13,15 @@ public class SqliteVectorStoreProvider : IVectorStore
     private readonly SqliteVectorStore _store;
     private readonly SqliteCollection<string, MicrosoftVectorRecord> _collection;
 
-    public SqliteVectorStoreProvider(string sqliteDbPath, string collectionName)
+    public SqliteVectorStoreProvider(string sqliteDbPath, string collectionName, bool retrainData)
     {
+
+        if(retrainData)
+        {
+            DbHelper.DeleteSqliteDatabase(sqliteDbPath);
+            DbHelper.CreateSqliteDatabase(sqliteDbPath);
+        }
+
         // Build the ADO.NET connection string
         var connString = $"Data Source={sqliteDbPath}";
 

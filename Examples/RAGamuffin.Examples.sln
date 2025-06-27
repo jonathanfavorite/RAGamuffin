@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RAGamuffin.Examples.TrainAndSearch", "RAGamuffin.Examples.TrainAndSearch\RAGamuffin.Examples.TrainAndSearch.csproj", "{18ACDA03-F9EE-45D7-8B0A-62274C477396}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RAGamuffin", "..\RAGamuffin\RAGamuffin.csproj", "{D1DB0CF9-78FF-494F-A582-C7DF791C04F3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{18ACDA03-F9EE-45D7-8B0A-62274C477396}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{18ACDA03-F9EE-45D7-8B0A-62274C477396}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{18ACDA03-F9EE-45D7-8B0A-62274C477396}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{18ACDA03-F9EE-45D7-8B0A-62274C477396}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D1DB0CF9-78FF-494F-A582-C7DF791C04F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1DB0CF9-78FF-494F-A582-C7DF791C04F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1DB0CF9-78FF-494F-A582-C7DF791C04F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1DB0CF9-78FF-494F-A582-C7DF791C04F3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2F5B8A42-F397-4060-970A-8E43C01A0424}
+	EndGlobalSection
+EndGlobal
