@@ -1,4 +1,4 @@
-﻿namespace RAGamuffin.Core;
+﻿namespace RAGamuffin.Ingestion.Strategies;
 public enum IngestionStrategy
 {
     ParagraphSplitting,

@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.VectorData;
 
-namespace RAGamuffin.VectorStores;
-internal class MicrosoftVectorRecord
+namespace RAGamuffin.Models;
+public class VectorRecord
 {
     [VectorStoreKey]
     public string Id { get; set; }

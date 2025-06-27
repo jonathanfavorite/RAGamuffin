@@ -1,4 +1,4 @@
-﻿namespace RAGamuffin.Core;
+﻿namespace RAGamuffin.Models;
 public class IngestedItem
 {
     public string Id { get; set; }
