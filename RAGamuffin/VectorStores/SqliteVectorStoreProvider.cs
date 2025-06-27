@@ -83,4 +83,9 @@ public class SqliteVectorStoreProvider : IVectorStore
 
         return list;
     }
+
+    public async Task DropCollectionAsync()
+    {
+        await _collection.DeleteAsync();
+    }
 }

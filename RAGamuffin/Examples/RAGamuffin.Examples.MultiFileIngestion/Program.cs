@@ -1,9 +1,11 @@
-﻿using RAGamuffin.Abstractions;
+using RAGamuffin.Abstractions;
 using RAGamuffin.Builders;
 using RAGamuffin.Core;
 using RAGamuffin.Embedding;
 using RAGamuffin.Enums;
 using RAGamuffin.Ingestion;
+
+namespace RAGamuffin.Examples.MultiFileIngestion;
 
 class Program
 {
@@ -45,7 +47,7 @@ class Program
         {
             var ingestedItems = await builder.BuildAndIngestAsync();
             Console.WriteLine($"Successfully ingested {ingestedItems.Count} items");
-
+            
             foreach (var item in ingestedItems.Take(3))
             {
                 Console.WriteLine($"Item ID: {item.Id}");
@@ -59,4 +61,4 @@ class Program
             Console.WriteLine($"Error during ingestion: {ex.Message}");
         }
     }
-}
+} 

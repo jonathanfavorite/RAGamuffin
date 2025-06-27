@@ -14,10 +14,10 @@ public class OnnxEmbedder : IEmbedder
     private InferenceSession _session;
     private Tokenizer _tokenizer;
 
-    public OnnxEmbedder(OnnxEmbeddingModel model)
+    public OnnxEmbedder(string model, string tokenizer)
     {
-        _session = new InferenceSession(model.ModelPath);
-        _tokenizer = new Tokenizer(model.TokenizerPath);
+        _session = new InferenceSession(model);
+        _tokenizer = new Tokenizer(tokenizer);
     }
 
     public async Task<float[]> EmbedAsync(string text, CancellationToken cancellationToken = default)
