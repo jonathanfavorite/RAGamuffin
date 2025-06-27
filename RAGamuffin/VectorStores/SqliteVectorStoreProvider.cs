@@ -1,13 +1,16 @@
 ﻿using Microsoft.SemanticKernel.Connectors.SqliteVec;
+using Microsoft.Extensions.VectorData;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using System;
 using System.Text.Json;
-using RAGamuffin.Abstractions;
-using RAGamuffin.Models;
 
-namespace RAGamuffin.VectorStores.Providers;
-public class SqliteVectorStoreProvider : IVectorStore, IDisposable
+namespace RAGamuffin.VectorStores;
+public class SqliteVectorStoreProvider : IVectorStore
 {
     private readonly SqliteVectorStore _store;
-    private readonly SqliteCollection<string, VectorRecord> _collection;
+    private readonly SqliteCollection<string, MicrosoftVectorRecord> _collection;
 
     public SqliteVectorStoreProvider(string sqliteDbPath, string collectionName)
     {
@@ -15,7 +18,7 @@ public class SqliteVectorStoreProvider : IVectorStore, IDisposable
         var connString = $"Data Source={sqliteDbPath}";
 
         // Pass (connectionString, collectionName) per API
-        _collection = new SqliteCollection<string, VectorRecord>(
+        _collection = new SqliteCollection<string, MicrosoftVectorRecord>(
             connString,
             collectionName
         );
@@ -24,30 +27,17 @@ public class SqliteVectorStoreProvider : IVectorStore, IDisposable
         _collection.EnsureCollectionExistsAsync().GetAwaiter().GetResult();
     }
 
-    public void Dispose()
-    {
-        _collection?.Dispose();
-    }
-
     public async Task UpsertAsync(
             string id,
             float[] vector,
             IDictionary<string, object> metaData)
     {
-        var record = new VectorRecord
+        var record = new MicrosoftVectorRecord
         {
             Id = id,
             Embedding = vector,
             MetaJson = metaData != null ? JsonSerializer.Serialize(metaData) : null
         };
-        
-        // Debug: Show what we're storing
-        if (metaData?.ContainsKey("text") == true)
-        {
-            var text = metaData["text"].ToString();
-            Console.WriteLine($"  [STORE] Storing text length: {text?.Length}, preview: {(text?.Length > 50 ? text[..50] + "..." : text)}");
-        }
-        
         await _collection.UpsertAsync(record).ConfigureAwait(false);
     }
 
@@ -69,13 +59,6 @@ public class SqliteVectorStoreProvider : IVectorStore, IDisposable
                 try
                 {
                     meta = JsonSerializer.Deserialize<Dictionary<string, object>>(r.Record.MetaJson!);
-                    
-                    // Debug: Show what we're retrieving
-                    if (meta?.ContainsKey("text") == true)
-                    {
-                        var text = meta["text"].ToString();
-                        Console.WriteLine($"  [RETRIEVE] Retrieved text length: {text?.Length}, preview: {(text?.Length > 50 ? text[..50] + "..." : text)}");
-                    }
                 }
                 catch { /* ignore deserialization errors */ }
             }

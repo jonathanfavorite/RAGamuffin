@@ -1,6 +1,6 @@
-﻿using RAGamuffin.Ingestion.Strategies;
+﻿using RAGamuffin.Core;
 
-namespace RAGamuffin.Configuration;
+namespace RAGamuffin.Ingestion;
 public interface IIngestionOptions
 {
     IngestionStrategy Strategy { get; }

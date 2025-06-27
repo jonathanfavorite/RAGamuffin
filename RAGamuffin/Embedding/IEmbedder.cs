@@ -1,4 +1,4 @@
-﻿namespace RAGamuffin.Abstractions;
+﻿namespace RAGamuffin.Embedding;
 public interface IEmbedder
 {
     int Dimension { get; }

@@ -1,4 +1,4 @@
-﻿namespace RAGamuffin.Ingestion.Strategies;
+﻿namespace RAGamuffin.Core;
 public enum TextIngestionMethodology
 {
     PlainText,
