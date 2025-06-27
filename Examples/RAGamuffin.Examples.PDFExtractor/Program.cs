@@ -1,31 +1,18 @@
 ﻿using InstructSharp.Clients.ChatGPT;
-using InstructSharp.Core;
-using RAGamuffin.Abstractions;
-using RAGamuffin.Common;
-using RAGamuffin.Embedding;
-using RAGamuffin.Ingestion.Engines;
-using RAGamuffin.Models;
-using RAGamuffin.VectorStores.Providers;
+using RAGamuffin.Factories;
 
 namespace RAGamuffin.Examples.PDFExtractor;
 
-/// <summary>
-/// RAGamuffin PDF Extractor Example
-/// 
-/// This example demonstrates how to use RAGamuffin with InstructSharp to create
-/// a powerful RAG (Retrieval-Augmented Generation) system that can:
-/// 1. Ingest and process PDF documents
-/// 2. Create vector embeddings for semantic search
-/// 3. Store vectors in a SQLite database
-/// 4. Perform semantic search queries
-/// 5. Use InstructSharp to generate AI-powered responses
-///
-/// </summary>
 public class Program
 {
     // ============================================================================
-    // CONFIGURATION CONSTANTS
+    // SIMPLIFIED CONFIGURATION
     // ============================================================================
+    
+    /// <summary>
+    /// Base directory containing all RAG files (model, tokenizer, database)
+    /// </summary>
+    private const string BASE_DIRECTORY = @"C:\RAGamuffin\";
     
     /// <summary>
     /// Directory containing training PDF files to ingest
@@ -33,93 +20,161 @@ public class Program
     private const string TRAINING_FILES_DIRECTORY = @"C:\RAGamuffin\training-files\";
     
     /// <summary>
-    /// Directory for storing the vector database
-    /// </summary>
-    private const string DATABASE_DIRECTORY = @"C:\RAGamuffin\";
-    
-    /// <summary>
-    /// Name of the SQLite database file
-    /// </summary>
-    private const string DATABASE_NAME = "ragamuffin_documents.db";
-    
-    /// <summary>
-    /// Name of the vector collection in the database
-    /// </summary>
-    private const string COLLECTION_NAME = "documents";
-    
-    /// <summary>
     /// InstructSharp API key for LLM integration
     /// </summary>
     private const string API_KEY = "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";
-
-    /// <summary>
-    /// Path to the ONNX embedding model
-    /// For now we recommend https://huggingface.co/sentence-transformers/all-mpnet-base-v2/blob/main/onnx/model.onnx
-    /// </summary>
-    private const string EMBEDDING_MODEL_PATH = @"C:\RAGamuffin\model.onnx";
-
-    /// <summary>
-    /// Path to the embedding tokenizer
-    /// For now we recommend https://huggingface.co/sentence-transformers/all-mpnet-base-v2/blob/main/tokenizer.json
-    /// </summary>
-    private const string EMBEDDING_TOKENIZER_PATH = @"C:\RAGamuffin\tokenizer.json";
     
     /// <summary>
-    /// Flag to control whether to retrain the vector database
-    /// Set to true to rebuild the database from scratch
+    /// Whether to recreate the database (set to true for fresh start)
     /// </summary>
-    private const bool RETRAIN_DATABASE = true;
+    private const bool RECREATE_DATABASE = false;
+    
+    // ============================================================================
+    // CHUNKING STRATEGY EXAMPLES - Choose based on your document type and use case
+    // ============================================================================
     
     /// <summary>
-    /// Number of search results to retrieve
+    /// Different chunking strategies for different scenarios:
+    /// 
+    /// SMALL CHUNKS (400-600 chars, 100-200 overlap):
+    /// - Best for: FAQ documents, short-form content, Q&A systems
+    /// - Pros: Precise retrieval, less noise
+    /// - Cons: May lose broader context
+    /// 
+    /// MEDIUM CHUNKS (800-1200 chars, 200-400 overlap):
+    /// - Best for: General documents, articles, most use cases
+    /// - Pros: Good balance of precision and context
+    /// - Cons: Balanced approach - no major drawbacks
+    /// 
+    /// LARGE CHUNKS (1500-2000 chars, 500-800 overlap):
+    /// - Best for: Legal documents, academic papers, complex technical docs
+    /// - Pros: Preserves complex context and relationships
+    /// - Cons: May include some irrelevant information
+    /// 
+    /// CURRENT EXAMPLE: Using MEDIUM chunks (1200/500) - good for most PDF documents
     /// </summary>
-    private const int SEARCH_RESULT_COUNT = 5;
-    
-    /// <summary>
-    /// Chunk size for document processing (in characters)
-    /// </summary>
-    private const int CHUNK_SIZE = 1200;
-    
-    /// <summary>
-    /// Overlap between chunks (in characters)
-    /// </summary>
-    private const int CHUNK_OVERLAP = 500;
+    public static class ChunkingStrategies
+    {
+        // Small chunks for FAQ-style content
+        public static (int size, int overlap) SmallChunks => (500, 150);
+        
+        // Medium chunks for general documents (default)
+        public static (int size, int overlap) MediumChunks => (1200, 500);
+        
+        // Large chunks for complex documents
+        public static (int size, int overlap) LargeChunks => (1800, 700);
+        
+        // Custom chunks - adjust these values for your specific needs
+        public static (int size, int overlap) CustomChunks => (1000, 300);
+    }
 
     // ============================================================================
-    // MAIN EXECUTION
+    // MAIN EXECUTION - DRAMATICALLY SIMPLIFIED!
     // ============================================================================
     
     public static async Task Main(string[] args)
     {
-        Console.WriteLine(">>> RAGamuffin PDF Extractor Example");
-        Console.WriteLine("=====================================\n");
+        Console.WriteLine(">>> RAGamuffin PDF Extractor Example (Simplified Version)");
+        Console.WriteLine("==========================================================\n");
         
         try
         {
-            // Initialize the RAG system
-            var ragSystem = new RAGSystem();
+            // ==========================================
+            // STEP 1: Create RAG system with FINE CONTROL over chunking
+            // ==========================================
             
-            // Process documents and build vector database
-            if (RETRAIN_DATABASE)
-            {
-                Console.WriteLine("[TRAIN] Training Mode: Building vector database...");
-                await ragSystem.TrainDocumentsAsync();
-                Console.WriteLine("[OK] Vector database built successfully!\n");
-            }
+            Console.WriteLine("[SETUP] Creating RAG system with custom chunking configuration...");
             
-            // Perform a semantic search query
+            // Fine control over chunking parameters - customize as needed!
+            // Choose your chunking strategy based on document type:
+            var (chunkSize, overlap) = ChunkingStrategies.MediumChunks; // Change this to try different strategies!
+            
+            // Alternative ways to configure chunking:
+            // var (chunkSize, overlap) = ChunkingStrategies.SmallChunks;  // For FAQ/Q&A content
+            // var (chunkSize, overlap) = ChunkingStrategies.LargeChunks;  // For complex technical documents
+            // var (chunkSize, overlap) = (800, 200);                     // Custom values
+            // var (chunkSize, overlap) = (2000, 1000);                   // Very large chunks for academic papers
+            
+            // Note: Using .Create() instead of .CreateForDevelopment() to avoid default overrides
+            // This ensures RECREATE_DATABASE constant is respected exactly as set
+            
+            using var ragSystem = RAGBuilder
+                .Create()  // Start with blank configuration
+                .WithEmbedding(
+                    Path.Combine(BASE_DIRECTORY, "model.onnx"),
+                    Path.Combine(BASE_DIRECTORY, "tokenizer.json"))
+                .WithDatabase(BASE_DIRECTORY, "ragamuffin_documents.db", "documents")
+                .WithDatabaseRecreation(RECREATE_DATABASE)  // Explicit control over database recreation
+                .WithChunking(
+                    chunkSize: chunkSize,    // Fine control: Adjust chunk size for your content
+                    overlap: overlap)        // Fine control: Adjust overlap for better context retention
+                .WithDefaultSearchResults(5)
+                .WithMetadata(true)
+                .BuildSystem();
+            
+            // Display the configuration being used (including database recreation setting)
+            var config = ragSystem.GetConfiguration();
+            Console.WriteLine($"📊 RAG System Configuration:");
+            Console.WriteLine($"   • Database Path: {config.FullDatabasePath}");
+            Console.WriteLine($"   • Recreate Database: {config.RecreateDatabase} (Constant value: {RECREATE_DATABASE})");
+            Console.WriteLine($"   • Collection Name: {config.CollectionName}");
+            Console.WriteLine();
+            Console.WriteLine($"📏 Chunking Configuration:");
+            Console.WriteLine($"   • Chunk Size: {config.ChunkSize} characters");
+            Console.WriteLine($"   • Chunk Overlap: {config.ChunkOverlap} characters");
+            Console.WriteLine($"   • Effective chunk step: {config.ChunkSize - config.ChunkOverlap} characters");
+            Console.WriteLine($"   • Overlap percentage: {(double)config.ChunkOverlap / config.ChunkSize * 100:F1}%");
+            Console.WriteLine($"   • Strategy: {GetChunkingStrategyName(config.ChunkSize, config.ChunkOverlap)}");
+            Console.WriteLine();
+            Console.WriteLine("💡 Chunking Impact:");
+            Console.WriteLine("   • Larger chunks = Better context retention, but potentially more noise");
+            Console.WriteLine("   • Smaller chunks = More precise retrieval, but may lose broader context");
+            Console.WriteLine("   • Higher overlap = Better context continuity, but more storage needed");
+            Console.WriteLine("   • Lower overlap = More efficient storage, but potential context gaps");
+            
+            Console.WriteLine("✅ RAG system created successfully!\n");
+
+            // ==========================================
+            // STEP 2: Ingest documents
+            // ==========================================
+            
+            Console.WriteLine("[TRAIN] Ingesting PDF documents...");
+            
+            var chunksIngested = await ragSystem.IngestDirectoryAsync(TRAINING_FILES_DIRECTORY, "*.pdf");
+            
+            Console.WriteLine($"✅ Successfully ingested {chunksIngested} chunks from PDF files!\n");
+
+            // ==========================================
+            // STEP 3: Perform semantic search
+            // ==========================================
+            
             Console.WriteLine("[SEARCH] Performing semantic search...");
-
-            // Example search query
+            
             string searchQuery = "What are the paid holidays at this company?";
+            
+            // This single line replaces ~20 lines of search setup code!
+            var searchResults = await ragSystem.SearchAsync(searchQuery, resultCount: 5);
+            
+            Console.WriteLine($"!!! Found {searchResults.Count()} relevant results!\n");
 
-            var searchResults = await ragSystem.SearchAsync(searchQuery, SEARCH_RESULT_COUNT);
+            // ==========================================
+            // STEP 4: Generate AI response with InstructSharp
+            // ==========================================
             
-            // Generate AI response using InstructSharp
             Console.WriteLine("[AI] Generating AI response with InstructSharp...");
-            var aiResponse = await ragSystem.GenerateResponseAsync(searchQuery, searchResults);
             
-            // Display results
+            // Extract context for LLM (utility method provided by factory)
+            var context = SimpleRAGSystem.ExtractContextFromResults(searchResults);
+            
+            // Generate response using InstructSharp (same as before)
+            var aiResponse = await GenerateInstructSharpResponse(searchQuery, context);
+            
+            Console.WriteLine("!!! AI response generated successfully!\n");
+
+            // ==========================================
+            // STEP 5: Display results
+            // ==========================================
+            
             DisplayResults(searchQuery, searchResults, aiResponse);
         }
         catch (Exception ex)
@@ -133,229 +188,65 @@ public class Program
     }
 
     // ============================================================================
-    // RAG SYSTEM CLASS
+    // HELPER METHODS
     // ============================================================================
     
     /// <summary>
-    /// Main RAG system that orchestrates document ingestion, vector storage,
-    /// semantic search, and AI response generation using InstructSharp.
+    /// Identifies which chunking strategy is being used based on size and overlap
     /// </summary>
-    public class RAGSystem
+    private static string GetChunkingStrategyName(int chunkSize, int overlap)
     {
-        private readonly IEmbedder _embedder;
-        private IVectorStore _vectorStore;
-        private readonly Dictionary<string, IIngestionEngine> _engines;
-        private readonly ChatGPTClient _llmClient;
-        private readonly string _fullDbPath;
-
-        public RAGSystem()
+        var strategies = new[]
         {
-            // Initialize embedding model
-            _embedder = new OnnxEmbedder(EMBEDDING_MODEL_PATH, EMBEDDING_TOKENIZER_PATH);
+            ("Small Chunks", ChunkingStrategies.SmallChunks),
+            ("Medium Chunks", ChunkingStrategies.MediumChunks),
+            ("Large Chunks", ChunkingStrategies.LargeChunks),
+            ("Custom Chunks", ChunkingStrategies.CustomChunks)
+        };
+        
+        foreach (var (name, (size, overlp)) in strategies)
+        {
+            if (chunkSize == size && overlap == overlp)
+                return name;
+        }
+        
+        return $"Custom ({chunkSize}/{overlap})";
+    }
+    
+    /// <summary>
+    /// Generates an AI response using InstructSharp (same as before, but simpler setup)
+    /// </summary>
+    private static async Task<string> GenerateInstructSharpResponse(string query, string context)
+    {
+        var llmClient = new ChatGPTClient(API_KEY);
+        
+        var request = new ChatGPTRequest
+        {
+            Model = ChatGPTModels.GPT4o,
+
+            Instructions = @"You are a helpful assistant. Answer the question based on the provided context. 
+                           Only refer to the context provided to eliminate false information. 
+                           Try not to mention context, if you _have_ to mention it, say something like 
+                           'according to my training data' or something. 
+                           !!!Important: try and provide the literal information provided from the context.",
             
-            // Store the database path but don't create vector store yet
-            _fullDbPath = Path.Combine(DATABASE_DIRECTORY, DATABASE_NAME);
-            
-            // Initialize document ingestion engines
-            _engines = new Dictionary<string, IIngestionEngine>
-            {
-                ["pdf"] = new PdfIngestionEngine(),
-                ["text"] = new TextIngestionEngine()
+            Input = $@"Here is the user's question: {query}
+
+                    And here is the context I have found:
+                    {context}"
             };
-            
-            // Initialize InstructSharp client
-            _llmClient = new ChatGPTClient(API_KEY);
-            
-            Console.WriteLine("✅ RAG system initialized successfully");
-        }
-
-        /// <summary>
-        /// Trains the system by ingesting documents from the training directory,
-        /// creating vector embeddings, and storing them in the database.
-        /// </summary>
-        public async Task TrainDocumentsAsync()
-        {
-            // Handle database deletion BEFORE creating vector store
-            if (RETRAIN_DATABASE)
-            {
-                try
-                {
-                    Console.WriteLine($">>> Deleting database: {_fullDbPath}");
-                    DbHelper.DeleteSqliteDatabase(_fullDbPath);
-                    Console.WriteLine($">>> Creating new database: {_fullDbPath}");
-                    DbHelper.CreateSqliteDatabase(_fullDbPath);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[WARNING] Could not delete existing database: {ex.Message}");
-                    Console.WriteLine("[INFO] Continuing with existing database...");
-                }
-            }
-            
-            // Now create the vector store (after database operations)
-            if (_vectorStore == null)
-            {
-                _vectorStore = new SqliteVectorStoreProvider(_fullDbPath, COLLECTION_NAME);
-            }
-            
-            // Get all PDF files from training directory
-            var trainingFiles = GetTrainingFiles();
-            Console.WriteLine($">>> Found {trainingFiles.Length} training files");
-            
-            // Configure ingestion options
-            var pdfOptions = new PdfHybridParagraphIngestionOptions
-            {
-                MinSize = 0,  // Not used in fixed-size chunking
-                MaxSize = CHUNK_SIZE,
-                Overlap = CHUNK_OVERLAP,
-                UseMetadata = true
-            };
-            
-            var textOptions = new TextHybridParagraphIngestionOptions
-            {
-                MinSize = 0,  // Not used in fixed-size chunking
-                MaxSize = CHUNK_SIZE,
-                Overlap = CHUNK_OVERLAP,
-                UseMetadata = true
-            };
-            
-            // Process each file
-            var ingestedItems = new List<IngestedItem>();
-            foreach (var file in trainingFiles)
-            {
-                Console.WriteLine($">>> Processing: {Path.GetFileName(file)}");
-                var extension = Path.GetExtension(file).ToLowerInvariant();
-                
-                List<IngestedItem> fileItems;
-                switch (extension)
-                {
-                    case ".pdf":
-                        fileItems = await _engines["pdf"].IngestAsync(file, pdfOptions, CancellationToken.None);
-                        break;
-                    default:
-                        fileItems = await _engines["text"].IngestAsync(file, textOptions, CancellationToken.None);
-                        break;
-                }
-                
-                // Debug: Show chunk statistics
-                if (fileItems.Any())
-                {
-                    var avgLength = fileItems.Average(item => item.Text.Length);
-                    var minLength = fileItems.Min(item => item.Text.Length);
-                    var maxLength = fileItems.Max(item => item.Text.Length);
-                    Console.WriteLine($">>> Chunks: {fileItems.Count}, Avg: {avgLength:F0} chars, Min: {minLength}, Max: {maxLength}");
-                }
-                
-                ingestedItems.AddRange(fileItems);
-            }
-            
-            Console.WriteLine($">>>  Ingested {ingestedItems.Count} document chunks");
-            
-            // Create embeddings and store vectors
-            Console.WriteLine(">>>  Creating vector embeddings...");
-            foreach (var item in ingestedItems)
-            {
-                item.Vectors = await _embedder.EmbedAsync(item.Text);
-                
-                // Debug: Show what we're actually storing
-                Console.WriteLine($"  Chunk {item.Id[..8]}... - Length: {item.Text.Length}");
-                Console.WriteLine($"  Text preview: {(item.Text.Length > 100 ? item.Text[..100] + "..." : item.Text)}");
-                
-                // Create fresh metadata to ensure we have the correct text
-                var metadata = new Dictionary<string, object>
-                {
-                    ["text"] = item.Text,  // Always use the full chunk text
-                    ["Length"] = item.Text.Length,
-                    ["source"] = item.Source,
-                    ["id"] = item.Id
-                };
-                
-                await _vectorStore.UpsertAsync(item.Id, item.Vectors, metadata);
-            }
-            
-            Console.WriteLine($">>> Stored {ingestedItems.Count} vectors in database");
-        }
-
-        /// <summary>
-        /// Performs semantic search using the query and returns the most relevant results.
-        /// </summary>
-        /// <param name="query">The search query</param>
-        /// <param name="resultCount">Number of results to return</param>
-        /// <returns>List of search results with scores and metadata</returns>
-        public async Task<IEnumerable<(string Key, float Score, IDictionary<string, object> MetaData)>> SearchAsync(string query, int resultCount)
-        {
-            // Ensure vector store is created
-            if (_vectorStore == null)
-            {
-                _vectorStore = new SqliteVectorStoreProvider(_fullDbPath, COLLECTION_NAME);
-            }
-            
-            var queryVector = await _embedder.EmbedAsync(query);
-            return await _vectorStore.SearchAsync(queryVector, resultCount);
-        }
-
-        /// <summary>
-        /// Generates an AI response using InstructSharp based on the search results.
-        /// </summary>
-        /// <param name="query">The original user query</param>
-        /// <param name="searchResults">The retrieved search results</param>
-        /// <returns>The AI-generated response</returns>
-        public async Task<string> GenerateResponseAsync(string query, IEnumerable<(string Key, float Score, IDictionary<string, object> MetaData)> searchResults)
-        {
-            // Extract context from search results
-            var contextTexts = searchResults
-                .Where(r => r.MetaData?.ContainsKey("text") == true)
-                .Select(r => r.MetaData["text"].ToString())
-                .Where(text => !string.IsNullOrEmpty(text))
-                .ToList();
-            
-            var contextForLLM = string.Join("\n\n", contextTexts);
-            
-            // Create InstructSharp request
-            var request = new ChatGPTRequest
-            {
-                Model = ChatGPTModels.GPT4o,
-                Instructions = @"You are a helpful assistant. Answer the question based on the provided context. 
-                               Only refer to the context provided to eliminate false information. 
-                               Try not to mention context, if you _have_ to mention it, say something like 
-                               'according to my training data' or something. 
-                               !!!Important: try and provide the literal information provided from the context.",
-                Input = $@"Here is the user's question: {query}
-
-And here is the context I have found:
-{contextForLLM}"
-            };
-            
-            // Get response from InstructSharp
-            var response = await _llmClient.QueryAsync<string>(request);
-            return response.Result;
-        }
-
-        /// <summary>
-        /// Gets all training files from the configured directory.
-        /// </summary>
-        /// <returns>Array of file paths</returns>
-        private string[] GetTrainingFiles()
-        {
-            if (!Directory.Exists(TRAINING_FILES_DIRECTORY))
-            {
-                throw new DirectoryNotFoundException(
-                    $"Training directory not found: {TRAINING_FILES_DIRECTORY}. " +
-                    "Please create this directory and add your PDF files.");
-            }
-            
-            return Directory.GetFiles(TRAINING_FILES_DIRECTORY, "*.pdf", SearchOption.AllDirectories);
-        }
+        
+        var response = await llmClient.QueryAsync<string>(request);
+        return response.Result;
     }
 
-    // ============================================================================
-    // DISPLAY UTILITIES
-    // ============================================================================
-    
     /// <summary>
-    /// Displays the search results and AI response in a formatted way.
+    /// Displays the search results and AI response (simplified version)
     /// </summary>
-    private static void DisplayResults(string query, IEnumerable<(string Key, float Score, IDictionary<string, object> MetaData)> searchResults, string aiResponse)
+    private static void DisplayResults(
+        string query, 
+        IEnumerable<(string Key, float Score, IDictionary<string, object> MetaData)> searchResults, 
+        string aiResponse)
     {
         Console.WriteLine("\n" + "=".PadRight(80, '='));
         Console.WriteLine(">>> SEARCH RESULTS");
@@ -370,35 +261,13 @@ And here is the context I have found:
             Console.WriteLine($"  Score: {result.Score:F4}");
             Console.WriteLine($"  ID: {result.Key}");
             
-            // Debug: Show all available metadata keys
-            if (result.MetaData != null)
+            if (result.MetaData?.ContainsKey("text") == true)
             {
-                Console.WriteLine($"  Available metadata keys: {string.Join(", ", result.MetaData.Keys)}");
-                Console.WriteLine($"  Metadata count: {result.MetaData.Count}");
-                
-                // Show all metadata values for debugging
-                foreach (var kvp in result.MetaData)
-                {
-                    var value = kvp.Value?.ToString() ?? "null";
-                    var preview = value.Length > 100 ? value[..100] + "..." : value;
-                    Console.WriteLine($"    {kvp.Key}: {preview}");
-                }
-                
-                if (result.MetaData.ContainsKey("text"))
-                {
-                    var text = result.MetaData["text"].ToString() ?? "";
-                    var preview = text.Length > 200 ? text[..200] + "..." : text;
-                    Console.WriteLine($"  Text: {preview}");
-                }
-                else
-                {
-                    Console.WriteLine(">>> No 'text' key found in metadata");
-                }
+                var text = result.MetaData["text"].ToString() ?? "";
+                var preview = text.Length > 200 ? text[..200] + "..." : text;
+                Console.WriteLine($"  Text: {preview}");
             }
-            else
-            {
-                Console.WriteLine(">>>  No metadata available");
-            }
+            
             Console.WriteLine();
             resultIndex++;
         }
