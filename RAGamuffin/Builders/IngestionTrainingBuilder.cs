@@ -12,14 +12,8 @@ public class IngestionTrainingBuilder
     private IEmbedder _embedder;
     private IVectorStore _vectorStore;
     private string[] _trainingFiles = [];
-    private EmbeddingProviders _embeddingProvider;
     private bool _dropDatabaseAndRetrainOnLoad = false;
     private Dictionary<string, IIngestionOptions> _fileTypeOptions = new();
-
-    public IngestionTrainingBuilder(EmbeddingProviders embeddingProvider)
-    {
-        _embeddingProvider = embeddingProvider;
-    }
 
     public IngestionTrainingBuilder WithEmbeddingModel(IEmbedder embedder)
     {
@@ -80,6 +74,12 @@ public class IngestionTrainingBuilder
         }
 
         return await manager.IngestFilesAsync(_trainingFiles, cancellationToken);
+    }
+
+    public async Task Build(CancellationToken cancellationToken = default)
+    {
+        ValidateConfiguration();
+
     }
 
     public IIngestionEngine BuildSingleEngine()
