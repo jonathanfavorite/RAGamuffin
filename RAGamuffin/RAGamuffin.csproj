@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
     <Authors>Jonathan Favorite</Authors>
     <PackageIconUrl>https://raw.githubusercontent.com/jonathanfavorite/RAGamuffin/master/assets/icon.jpg</PackageIconUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,4 +22,10 @@
     <PackageReference Include="Tokenizers.DotNet.runtime.win-x64" Version="1.2.0" />
   </ItemGroup>
 
+  <Target Name="CopyRootReadme" BeforeTargets="Pack">
+    <Copy SourceFiles="$(SolutionDir)README.md" DestinationFiles="$(ProjectDir)README.md" />
+  </Target>
+  
 </Project>
+
+
