@@ -1,6 +1,10 @@
-# RAGamuffin
+![RAGamuffin Banner](https://i.imgur.com/i1JOlz9.jpeg)
 
-![RAGamuffin Banner](https://raw.githubusercontent.com/jonathanfavorite/RAGamuffin/master/assets/banner.jpg)
+<p align="center">
+  <a href="https://www.nuget.org/packages/RAGamuffin"><img src="https://img.shields.io/nuget/v/RAGamuffin?style=for-the-badge&color=brightgreen" alt="NuGet Version"></a>
+  <a href="https://github.com/jonathanfavorite/RAGamuffin/actions"><img src="https://img.shields.io/github/actions/workflow/status/jonathanfavorite/RAGamuffin/build.yml?style=for-the-badge" alt="Build Status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/jonathanfavorite/RAGamuffin?style=for-the-badge&color=blue" alt="MIT License"></a>
+</p>
 
 A lightweight, cross-platform .NET library for building RAG (Retrieval-Augmented Generation) pipelines with local embedding models and SQLite vector storage.
 
