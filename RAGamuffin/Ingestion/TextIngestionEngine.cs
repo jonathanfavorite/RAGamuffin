@@ -306,9 +306,9 @@ public class TextIngestionEngine(ILogger<TextIngestionEngine>? logger = null) : 
 /// </summary>
 public class TextHybridParagraphIngestionOptions : IIngestionOptions
 {
-    private int _minSize = 500;
-    private int _maxSize = 1000;
-    private int _overlap = 200;
+    private int _minSize = 0;
+    private int _maxSize = 800;
+    private int _overlap = 400;
 
     /// <summary>
     /// Text preprocessing method (default: PlainText)

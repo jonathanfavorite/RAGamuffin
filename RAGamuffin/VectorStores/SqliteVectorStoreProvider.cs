@@ -16,7 +16,7 @@ public class SqliteVectorStoreProvider : IVectorStore
     private readonly SqliteVectorStore _store;
     private readonly SqliteCollection<string, MicrosoftVectorRecord> _collection;
 
-    public SqliteVectorStoreProvider(string sqliteDbPath, string collectionName, bool retrainData)
+    public SqliteVectorStoreProvider(string sqliteDbPath, string collectionName, bool retrainData = false)
     {
 
         if(retrainData)
@@ -63,6 +63,24 @@ public class SqliteVectorStoreProvider : IVectorStore
     {
         var queryVector = await embedder.EmbedAsync(query, cancellationToken);
         return await SearchAsync(queryVector, topK, cancellationToken);
+    }
+
+    public async Task<string[]> SearchAndReturnTexts(string query, IEmbedder embedder, int topK, CancellationToken cancellationToken = default)
+    {
+        List<string> texts = new();
+
+        var results = await SearchAsync(query, embedder, topK, cancellationToken);
+        foreach (var result in results)
+        {
+            // Extract the original text from metadata for LLM context
+            if (result.MetaData != null && result.MetaData.ContainsKey("text"))
+            {
+                string text = result.MetaData["text"].ToString() ?? "";
+                texts.Add(text);
+            }
+        }
+
+        return texts.ToArray();
     }
 
     private async Task<IEnumerable<(string Key, float Score, IDictionary<string, object>? MetaData)>>

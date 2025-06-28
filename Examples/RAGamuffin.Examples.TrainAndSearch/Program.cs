@@ -69,8 +69,8 @@ namespace RAGamuffin.Examples.TrainAndSearch
                 .WithPdfOptions(new PdfHybridParagraphIngestionOptions
                 {
                     MinSize = 0,        // Minimum chunk size
-                    MaxSize = 1200,     // Maximum chunk size
-                    Overlap = 500,      // Overlap between chunks for context preservation
+                    MaxSize = 800,     // Maximum chunk size
+                    Overlap = 400,      // Overlap between chunks for context preservation
                     UseMetadata = true  // Include document metadata
                 })
 
@@ -78,8 +78,8 @@ namespace RAGamuffin.Examples.TrainAndSearch
                 .WithTextOptions(new TextHybridParagraphIngestionOptions
                 {
                     MinSize = 500,      // Minimum chunk size
-                    MaxSize = 1000,     // Maximum chunk size
-                    Overlap = 200,      // Overlap between chunks
+                    MaxSize = 800,     // Maximum chunk size
+                    Overlap = 400,      // Overlap between chunks
                     UseMetadata = true  // Include document metadata
                 })
 

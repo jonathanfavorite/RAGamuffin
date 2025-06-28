@@ -270,8 +270,8 @@ public class PdfIngestionEngine(ILogger<PdfIngestionEngine>? logger = null) : II
 /// </summary>
 public class PdfHybridParagraphIngestionOptions : IIngestionOptions
 {
-    private int _maxSize = 1200;
-    private int _overlap = 500;
+    private int _maxSize = 800;
+    private int _overlap = 400;
 
     /// <summary>
     /// PDF extraction method (default: PDFTextExtractor)

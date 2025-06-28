@@ -92,9 +92,4 @@ public class OnnxEmbedder : IEmbedder
         }
         return embeddings;
     }
-
-    public Task<float[][]> EmbedAsync(IEnumerable<string> texts, CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
 }
