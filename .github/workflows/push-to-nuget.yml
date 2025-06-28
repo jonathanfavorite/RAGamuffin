@@ -22,7 +22,6 @@ jobs:
       - name: Copy README to RAGamuffin project directory
         run: |
           cp README.md RAGamuffin/README.md
-          cp README.md RAGamuffin/RAGamuffin/README.md
 
       - name: Build
         run: dotnet build --configuration Release --no-restore
