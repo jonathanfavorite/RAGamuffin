@@ -1,4 +1,4 @@
-![RAGamuffin Banner](https://i.imgur.com/i1JOlz9.jpeg)
+![RAGamuffin Banner](https://raw.githubusercontent.com/jonathanfavorite/RAGamuffin/master/assets/banner.jpg)
 
 <p align="center">
   <a href="https://www.nuget.org/packages/RAGamuffin"><img src="https://img.shields.io/nuget/v/RAGamuffin?style=for-the-badge&color=brightgreen" alt="NuGet Version"></a>
