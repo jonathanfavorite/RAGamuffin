@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <Target Name="CopyRootReadme" BeforeTargets="Pack">
-    <Copy SourceFiles="$(SolutionDir)RAGamuffin/README.md" DestinationFiles="$(ProjectDir)README.md" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/../README.md" DestinationFiles="$(MSBuildProjectDirectory)/README.md" />
   </Target>
 
   <ItemGroup>
