@@ -1,6 +1,6 @@
 # RAGamuffin
 
-![RAGamuffin Banner](assets/banner.jpg)
+![RAGamuffin Banner](https://raw.githubusercontent.com/jonathanfavorite/RAGamuffin/master/assets/banner.jpg)
 
 A lightweight, cross-platform .NET library for building RAG (Retrieval-Augmented Generation) pipelines with local embedding models and SQLite vector storage.
 
