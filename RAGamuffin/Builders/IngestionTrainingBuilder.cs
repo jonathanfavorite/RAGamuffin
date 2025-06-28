@@ -14,6 +14,7 @@ public class IngestionTrainingBuilder
     private string[] _trainingFiles = [];
     private Dictionary<string, IIngestionOptions> _fileTypeOptions = new();
     private TrainingStrategy _trainingStrategy = TrainingStrategy.RetrainFromScratch;
+    private bool _allowTextTraining = false;
 
     public IngestionTrainingBuilder WithEmbeddingModel(IEmbedder embedder)
     {
@@ -124,6 +125,29 @@ public class IngestionTrainingBuilder
         return await model.Train(trainingFiles, cancellationToken);
     }
 
+    /// <summary>
+    /// Trains the model with text content directly (no files required)
+    /// Perfect for real-time data ingestion scenarios
+    /// </summary>
+    /// <param name="textItems">Array of text items to process</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Tuple containing the ingested items and the trained model</returns>
+    public async Task<(List<IngestedItem> IngestedItems, RAGamuffinModel Model)> TrainWithText(TextItem[] textItems, CancellationToken cancellationToken = default)
+    {
+        _allowTextTraining = true;
+        var model = Build();
+        _allowTextTraining = false; // Reset for future calls
+        
+        // Validate that text items are provided
+        if (textItems == null || textItems.Length == 0)
+        {
+            throw new InvalidOperationException("Text items must be provided for training.");
+        }
+        
+        var ingestedItems = await model.TrainWithText(textItems, cancellationToken);
+        return (ingestedItems, model);
+    }
+
     public async Task<List<IngestedItem>> BuildAndIngestAsync(CancellationToken cancellationToken = default)
     {
         var model = Build();
@@ -184,9 +208,10 @@ public class IngestionTrainingBuilder
             throw new InvalidOperationException("Vector database must be set before building.");
         }
 
-        // Only require training files for RetrainFromScratch strategy
-        // For incremental strategies, files can be provided later when Train() is called
-        if (_trainingStrategy == TrainingStrategy.RetrainFromScratch && (_trainingFiles == null || _trainingFiles.Length == 0))
+        // Only require training files for file-based training, not for text-based
+        if ((_trainingStrategy == TrainingStrategy.RetrainFromScratch) &&
+            (_trainingFiles == null || _trainingFiles.Length == 0) &&
+            !_allowTextTraining)
         {
             throw new InvalidOperationException("Training files must be set before building when using RetrainFromScratch strategy.");
         }

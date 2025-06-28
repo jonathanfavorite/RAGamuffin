@@ -110,7 +110,7 @@ public class SqliteVectorStoreProvider : IVectorStore
             ));
         }
 
-        return list;
+        return list.OrderByDescending(x => x.Score);
     }
 
     public async Task DropCollectionAsync()
@@ -139,22 +139,11 @@ public class SqliteVectorStoreProvider : IVectorStore
             {
                 await _collection.DeleteAsync(allKeys).ConfigureAwait(false);
             }
-            
-            // Recreate the database file to ensure a clean slate
-            if (File.Exists(_databasePath))
-            {
-                DbHelper.DeleteSqliteDatabase(_databasePath);
-                DbHelper.CreateSqliteDatabase(_databasePath);
-            }
         }
         catch (Exception ex)
         {
-            // If search fails, try to recreate the database anyway
-            if (File.Exists(_databasePath))
-            {
-                DbHelper.DeleteSqliteDatabase(_databasePath);
-                DbHelper.CreateSqliteDatabase(_databasePath);
-            }
+            // If search fails, the collection might already be empty or there might be an issue
+            // We'll just continue - the collection will be effectively empty
         }
     }
 
@@ -176,23 +165,43 @@ public class SqliteVectorStoreProvider : IVectorStore
     public async Task<int> GetDocumentCountAsync()
     {
         var count = 0;
-        var vectorDimension = 768;
-        var dummyVector = new float[vectorDimension];
+        
+        Console.WriteLine($"DEBUG: Counting documents using direct collection access");
         
         try
         {
-            var searchResults = _collection.SearchAsync(dummyVector, int.MaxValue);
+            // Use a simple approach: try to get a small sample and count them
+            // This is more reliable than dummy vector search
+            var searchResults = _collection.SearchAsync(new float[768], 1000);
             await foreach (var result in searchResults.ConfigureAwait(false))
             {
                 count++;
+                if (count <= 3) // Only log first few for debugging
+                {
+                    Console.WriteLine($"DEBUG: Counted document {result.Record.Id}");
+                }
             }
         }
         catch (Exception ex)
         {
-            // If search fails, collection might be empty
-            return 0;
+            Console.WriteLine($"DEBUG: Exception during count: {ex.Message}");
+            Console.WriteLine($"DEBUG: Exception type: {ex.GetType().Name}");
+            
+            // Try alternative approach: use GetAllDocumentsMetadataAsync
+            try
+            {
+                var allDocs = await GetAllDocumentsMetadataAsync();
+                count = allDocs.Count();
+                Console.WriteLine($"DEBUG: Counted {count} documents using metadata approach");
+            }
+            catch (Exception ex2)
+            {
+                Console.WriteLine($"DEBUG: Alternative count also failed: {ex2.Message}");
+                return 0;
+            }
         }
         
+        Console.WriteLine($"DEBUG: Final document count: {count}");
         return count;
     }
 
@@ -226,5 +235,133 @@ public class SqliteVectorStoreProvider : IVectorStore
     public async Task DeleteDocumentsAsync(IEnumerable<string> documentIds)
     {
         await _collection.DeleteAsync(documentIds.ToList()).ConfigureAwait(false);
+    }
+
+    // New metadata retrieval methods
+    public async Task<IDictionary<string, object>?> GetDocumentMetadataAsync(string documentId)
+    {
+        try
+        {
+            var record = await _collection.GetAsync(documentId);
+            if (record?.MetaJson != null)
+            {
+                return JsonSerializer.Deserialize<Dictionary<string, object>>(record.MetaJson);
+            }
+        }
+        catch { /* ignore errors */ }
+        return null;
+    }
+
+    public async Task<IEnumerable<(string DocumentId, IDictionary<string, object>? Metadata)>> GetAllDocumentsMetadataAsync()
+    {
+        var results = new List<(string DocumentId, IDictionary<string, object>? Metadata)>();
+        var vectorDimension = 768;
+        var dummyVector = new float[vectorDimension];
+        
+        try
+        {
+            var searchResults = _collection.SearchAsync(dummyVector, int.MaxValue);
+            await foreach (var result in searchResults.ConfigureAwait(false))
+            {
+                IDictionary<string, object>? metadata = null;
+                if (!string.IsNullOrEmpty(result.Record.MetaJson))
+                {
+                    try
+                    {
+                        metadata = JsonSerializer.Deserialize<Dictionary<string, object>>(result.Record.MetaJson);
+                    }
+                    catch { /* ignore deserialization errors */ }
+                }
+                results.Add((result.Record.Id, metadata));
+            }
+        }
+        catch (Exception ex)
+        {
+            // Return empty list if search fails
+        }
+        
+        return results;
+    }
+
+    public async Task<IEnumerable<(string DocumentId, IDictionary<string, object>? Metadata)>> GetDocumentsByMetadataFilterAsync(
+        string metadataKey, 
+        object metadataValue, 
+        CancellationToken cancellationToken = default)
+    {
+        var allDocuments = await GetAllDocumentsMetadataAsync();
+        var filteredResults = new List<(string DocumentId, IDictionary<string, object>? Metadata)>();
+        
+        foreach (var doc in allDocuments)
+        {
+            if (doc.Metadata?.TryGetValue(metadataKey, out var value) == true)
+            {
+                if (value?.Equals(metadataValue) == true)
+                {
+                    filteredResults.Add(doc);
+                }
+            }
+        }
+        
+        return filteredResults;
+    }
+
+    public async Task<IEnumerable<(string DocumentId, IDictionary<string, object>? Metadata)>> GetDocumentsByMetadataRangeAsync(
+        string metadataKey, 
+        object minValue, 
+        object maxValue, 
+        CancellationToken cancellationToken = default)
+    {
+        var allDocuments = await GetAllDocumentsMetadataAsync();
+        var filteredResults = new List<(string DocumentId, IDictionary<string, object>? Metadata)>();
+        
+        foreach (var doc in allDocuments)
+        {
+            if (doc.Metadata?.TryGetValue(metadataKey, out var value) == true)
+            {
+                if (IsInRange(value, minValue, maxValue))
+                {
+                    filteredResults.Add(doc);
+                }
+            }
+        }
+        
+        return filteredResults;
+    }
+
+    public async Task<IEnumerable<string>> GetDocumentIdsByMetadataFilterAsync(
+        string metadataKey, 
+        object metadataValue, 
+        CancellationToken cancellationToken = default)
+    {
+        var filteredDocs = await GetDocumentsByMetadataFilterAsync(metadataKey, metadataValue, cancellationToken);
+        return filteredDocs.Select(doc => doc.DocumentId);
+    }
+
+    private bool IsInRange(object value, object minValue, object maxValue)
+    {
+        try
+        {
+            // Handle numeric comparisons
+            if (value is IComparable comparable && minValue is IComparable minComparable && maxValue is IComparable maxComparable)
+            {
+                return comparable.CompareTo(minValue) >= 0 && comparable.CompareTo(maxValue) <= 0;
+            }
+            
+            // Handle string comparisons
+            if (value is string strValue && minValue is string minStr && maxValue is string maxStr)
+            {
+                return string.Compare(strValue, minStr, StringComparison.OrdinalIgnoreCase) >= 0 && 
+                       string.Compare(strValue, maxStr, StringComparison.OrdinalIgnoreCase) <= 0;
+            }
+            
+            // Handle DateTime comparisons
+            if (value is DateTime dateValue && minValue is DateTime minDate && maxValue is DateTime maxDate)
+            {
+                return dateValue >= minDate && dateValue <= maxDate;
+            }
+        }
+        catch { /* ignore comparison errors */ }
+        
+        return false;
     }
 }

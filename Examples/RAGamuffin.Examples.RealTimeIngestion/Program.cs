@@ -97,7 +97,7 @@ namespace RAGamuffin.Examples.RealTimeIngestion
                         Timestamp = DateTime.Now
                     });
 
-                    // Process all pending data
+                    // Process all pending data using direct text training
                     var addedItems = await ProcessPendingDataAsync(pipeline);
                     
                     if (addedItems.Count > 0)
@@ -168,66 +168,20 @@ namespace RAGamuffin.Examples.RealTimeIngestion
             if (PendingData.Count == 0)
                 return new List<IngestedItem>();
 
-            var allAddedItems = new List<IngestedItem>();
-            var processedIds = new List<string>();
+            // Convert pending data to TextItems for direct processing
+            var textItems = PendingData.Select(item => new TextItem(
+                item.Id,
+                item.Content,
+                item.Timestamp
+            )).ToArray();
 
-            foreach (var dataItem in PendingData.ToList())
-            {
-                // Check if this data already exists (deduplication)
-                var exists = await pipeline.VectorStore.DocumentExistsAsync(dataItem.Id);
-                if (exists)
-                {
-                    processedIds.Add(dataItem.Id);
-                    continue;
-                }
+            // Process all text items directly (no temp files!)
+            var addedItems = await pipeline.TrainWithText(textItems);
 
-                // Process this data item directly in memory
-                var addedItems = await ProcessSingleDataItemAsync(pipeline, dataItem);
-                if (addedItems.Count > 0)
-                {
-                    allAddedItems.AddRange(addedItems);
-                    processedIds.Add(dataItem.Id);
-                }
-            }
+            // Clear the pending data collection
+            PendingData.Clear();
 
-            // Remove processed items from pending collection
-            foreach (var id in processedIds)
-            {
-                PendingData.RemoveAll(item => item.Id == id);
-            }
-
-            return allAddedItems;
-        }
-
-        /// <summary>
-        /// Processes a single data item and adds it to the vector store
-        /// </summary>
-        static async Task<List<IngestedItem>> ProcessSingleDataItemAsync(RAGamuffinModel pipeline, RealTimeDataItem dataItem)
-        {
-            // Create document content in memory
-            var documentContent = $"""
-                Data ID: {dataItem.Id}
-                Timestamp: {dataItem.Timestamp:yyyy-MM-dd HH:mm:ss}
-                Content: {dataItem.Content}
-                """;
-
-            // Create a temporary file for the ingestion pipeline (required by current architecture)
-            // In a future version, this could be eliminated with direct string processing
-            var tempFile = Path.GetTempFileName();
-            try
-            {
-                await File.WriteAllTextAsync(tempFile, documentContent);
-                
-                // Process and add to vector store
-                // This is where the magic happens - only this new data gets processed!
-                return await pipeline.Train(new[] { tempFile });
-            }
-            finally
-            {
-                // Clean up temp file
-                if (File.Exists(tempFile))
-                    File.Delete(tempFile);
-            }
+            return addedItems;
         }
 
         /// <summary>

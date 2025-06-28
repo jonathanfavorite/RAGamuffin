@@ -6,7 +6,7 @@ using InstructSharp.Core;
 namespace RAGamuffin.Examples.SearchExistingVectorStore
 {
     // RAGamuffin Example: Demonstrates how to search an existing vector store
-    // without using the full ingestion pipeline
+    // without using the full ingestion pipeline, including metadata retrieval
     static class Program
     {
         // ==================== EMBEDDING MODEL CONFIGURATION ====================
@@ -59,29 +59,83 @@ namespace RAGamuffin.Examples.SearchExistingVectorStore
             Console.WriteLine("Vector store provider initialized");
 
             // ============================================================
+            //                  METADATA RETRIEVAL DEMO
+            // ============================================================
+
+            Console.WriteLine("\n=== Metadata Retrieval Demo ===");
+            
+            // Get document count
+            var documentCount = await vectorStore.GetDocumentCountAsync();
+            Console.WriteLine($"Total documents in store: {documentCount}");
+
+            // Get all document metadata
+            var allMetadata = await vectorStore.GetAllDocumentsMetadataAsync();
+            Console.WriteLine($"\nRetrieved metadata for {allMetadata.Count()} documents");
+
+            // Show sample metadata from first few documents
+            var sampleDocs = allMetadata.Take(3);
+            foreach (var doc in sampleDocs)
+            {
+                Console.WriteLine($"\nDocument: {doc.DocumentId}");
+                if (doc.Metadata != null)
+                {
+                    foreach (var kvp in doc.Metadata)
+                    {
+                        Console.WriteLine($"  {kvp.Key}: {kvp.Value}");
+                    }
+                }
+            }
+
+            // ============================================================
             //                  PERFORM VECTOR SEARCH
             // ============================================================
 
             string searchQuery = "What are the paid holidays/days off we get?";
 
-            Console.WriteLine($"\nSearching for: {searchQuery}");
+            Console.WriteLine($"\n=== Vector Search Demo ===");
+            Console.WriteLine($"Searching for: {searchQuery}");
 
-            // Execute vector search using the provider's SearchAndReturnTexts method
-            string[] vectorSearchResults = await vectorStore.SearchAndReturnTexts(
+            // Execute vector search with metadata
+            var searchResults = await vectorStore.SearchAsync(
                 searchQuery,
                 embedder,
                 MaxSearchResults
             );
 
-            Console.WriteLine($"Found {vectorSearchResults.Length} relevant chunks\n");
+            Console.WriteLine($"Found {searchResults.Count()} relevant chunks\n");
 
+            // Display search results with metadata
+            foreach (var result in searchResults)
+            {
+                Console.WriteLine($"Score: {result.Score:F3}");
+                Console.WriteLine($"Document ID: {result.Key}");
+                
+                if (result.MetaData != null)
+                {
+                    Console.WriteLine("Metadata:");
+                    foreach (var kvp in result.MetaData)
+                    {
+                        Console.WriteLine($"  {kvp.Key}: {kvp.Value}");
+                    }
+                }
+                Console.WriteLine();
+            }
 
             // ============================================================
             //                    QUERY THE LLM
             // ============================================================
 
+            Console.WriteLine("=== LLM Query Demo ===");
             Console.WriteLine("Querying LLM for response...");
-            string llmResponse = await QueryLLM(searchQuery,string.Join("\n\n", vectorSearchResults));
+            
+            // Get just the text content for LLM
+            string[] vectorSearchTexts = await vectorStore.SearchAndReturnTexts(
+                searchQuery,
+                embedder,
+                MaxSearchResults
+            );
+            
+            string llmResponse = await QueryLLM(searchQuery, string.Join("\n\n", vectorSearchTexts));
 
             Console.WriteLine("\nLLM Response:\n");
             Console.WriteLine(llmResponse);
