@@ -1,5 +1,6 @@
 using RAGamuffin.Abstractions;
 using RAGamuffin.Core;
+using RAGamuffin.Enums;
 using RAGamuffin.Factories;
 using RAGamuffin.Helpers;
 
@@ -9,15 +10,15 @@ public class MultiFileIngestionManager
     private readonly IIngestionEngineFactory _factory;
     private readonly IEmbedder _embedder;
     private readonly IVectorStore _vectorStore;
-    private readonly bool _dropDatabaseAndRetrainOnLoad;
+    private readonly TrainingStrategy _trainingStrategy;
     private readonly Dictionary<string, IIngestionOptions> _fileTypeOptions;
 
-    public MultiFileIngestionManager(IIngestionEngineFactory factory, IEmbedder embedder, IVectorStore vectorStore, bool dropDatabaseAndRetrainOnLoad = false)
+    public MultiFileIngestionManager(IIngestionEngineFactory factory, IEmbedder embedder, IVectorStore vectorStore, TrainingStrategy trainingStrategy = TrainingStrategy.RetrainFromScratch)
     {
         _factory = factory;
         _embedder = embedder;
         _vectorStore = vectorStore;
-        _dropDatabaseAndRetrainOnLoad = dropDatabaseAndRetrainOnLoad;
+        _trainingStrategy = trainingStrategy;
         _fileTypeOptions = new Dictionary<string, IIngestionOptions>();
     }
 
@@ -34,7 +35,7 @@ public class MultiFileIngestionManager
 
     public async Task<List<IngestedItem>> IngestFilesAsync(string[] filePaths, bool performVectorOperations, CancellationToken cancellationToken = default)
     {
-        if (performVectorOperations && _dropDatabaseAndRetrainOnLoad)
+        if (performVectorOperations && _trainingStrategy == TrainingStrategy.RetrainFromScratch)
         {
             await _vectorStore.DropCollectionAsync();
         }

@@ -15,12 +15,13 @@ class Program
         Console.WriteLine("======================================");
 
         var embedder = new OnnxEmbedder("path/to/model.onnx", "path/to/tokenizer.json");
-        var dbModel = new SqliteDatabaseModel("test.db", "test_collection", true);
+        var dbModel = new SqliteDatabaseModel("test.db", "test_collection");
 
         // Build the model and get access to all components
         var ragModel = new IngestionTrainingBuilder()
             .WithEmbeddingModel(embedder)
             .WithVectorDatabase(dbModel)
+            .WithTrainingStrategy(TrainingStrategy.RetrainFromScratch)
             .WithPdfOptions(new PdfHybridParagraphIngestionOptions
             {
                 MinSize = 0,
@@ -42,7 +43,6 @@ class Program
                 "path/to/document3.md",
                 "path/to/document4.html"
             })
-            .DropDatabaseAndRetrain(true)
             .Build();
 
         try

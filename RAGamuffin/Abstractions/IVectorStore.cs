@@ -6,4 +6,11 @@ public interface IVectorStore
     Task<IEnumerable<(string Key, float Score, IDictionary<string, object> MetaData)>> SearchAsync(string query, IEmbedder embedder, int topK, CancellationToken cancellationToken = default);
     Task<string[]> SearchAndReturnTexts(string query, IEmbedder embedder, int topK, CancellationToken cancellationToken = default);
     Task DropCollectionAsync();
+    
+    // New methods for incremental training
+    Task<bool> DocumentExistsAsync(string documentId);
+    Task<int> GetDocumentCountAsync();
+    Task<IEnumerable<string>> GetDocumentIdsAsync();
+    Task DeleteDocumentAsync(string documentId);
+    Task DeleteDocumentsAsync(IEnumerable<string> documentIds);
 }

@@ -6,12 +6,10 @@ public class SqliteDatabaseModel : IVectorDatabaseModel
 {
     public string SqliteDbPath { get; set; }
     public string CollectionName { get; set; }
-    public bool RetrainData { get; set; }
 
-    public SqliteDatabaseModel(string sqliteDbPath, string collectionName, bool retrainData)
+    public SqliteDatabaseModel(string sqliteDbPath, string collectionName)
     {
         SqliteDbPath = sqliteDbPath;
         CollectionName = collectionName;
-        RetrainData = retrainData;
     }
 }

@@ -9,22 +9,19 @@ using RAGamuffin.Abstractions;
 using RAGamuffin.Helpers;
 using RAGamuffin.VectorStores.Models;
 using System.Threading;
+using System.IO;
 
 namespace RAGamuffin.VectorStores;
 public class SqliteVectorStoreProvider : IVectorStore
 {
     private readonly SqliteVectorStore _store;
     private readonly SqliteCollection<string, MicrosoftVectorRecord> _collection;
+    private readonly string _databasePath;
 
-    public SqliteVectorStoreProvider(string sqliteDbPath, string collectionName, bool retrainData = false)
+    public SqliteVectorStoreProvider(string sqliteDbPath, string collectionName)
     {
-
-        if(retrainData)
-        {
-            DbHelper.DeleteSqliteDatabase(sqliteDbPath);
-            DbHelper.CreateSqliteDatabase(sqliteDbPath);
-        }
-
+        _databasePath = sqliteDbPath;
+        
         // Build the ADO.NET connection string
         var connString = $"Data Source={sqliteDbPath}";
 
@@ -142,10 +139,92 @@ public class SqliteVectorStoreProvider : IVectorStore
             {
                 await _collection.DeleteAsync(allKeys).ConfigureAwait(false);
             }
+            
+            // Recreate the database file to ensure a clean slate
+            if (File.Exists(_databasePath))
+            {
+                DbHelper.DeleteSqliteDatabase(_databasePath);
+                DbHelper.CreateSqliteDatabase(_databasePath);
+            }
         }
         catch (Exception ex)
         {
-
+            // If search fails, try to recreate the database anyway
+            if (File.Exists(_databasePath))
+            {
+                DbHelper.DeleteSqliteDatabase(_databasePath);
+                DbHelper.CreateSqliteDatabase(_databasePath);
+            }
         }
+    }
+
+    // New methods for incremental training
+    public async Task<bool> DocumentExistsAsync(string documentId)
+    {
+        try
+        {
+            // Try to get the document by ID
+            var record = await _collection.GetAsync(documentId);
+            return record != null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<int> GetDocumentCountAsync()
+    {
+        var count = 0;
+        var vectorDimension = 768;
+        var dummyVector = new float[vectorDimension];
+        
+        try
+        {
+            var searchResults = _collection.SearchAsync(dummyVector, int.MaxValue);
+            await foreach (var result in searchResults.ConfigureAwait(false))
+            {
+                count++;
+            }
+        }
+        catch (Exception ex)
+        {
+            // If search fails, collection might be empty
+            return 0;
+        }
+        
+        return count;
+    }
+
+    public async Task<IEnumerable<string>> GetDocumentIdsAsync()
+    {
+        var documentIds = new List<string>();
+        var vectorDimension = 768;
+        var dummyVector = new float[vectorDimension];
+        
+        try
+        {
+            var searchResults = _collection.SearchAsync(dummyVector, int.MaxValue);
+            await foreach (var result in searchResults.ConfigureAwait(false))
+            {
+                documentIds.Add(result.Record.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Return empty list if search fails
+        }
+        
+        return documentIds;
+    }
+
+    public async Task DeleteDocumentAsync(string documentId)
+    {
+        await _collection.DeleteAsync(documentId).ConfigureAwait(false);
+    }
+
+    public async Task DeleteDocumentsAsync(IEnumerable<string> documentIds)
+    {
+        await _collection.DeleteAsync(documentIds.ToList()).ConfigureAwait(false);
     }
 }

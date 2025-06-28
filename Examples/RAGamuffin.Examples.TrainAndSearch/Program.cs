@@ -1,6 +1,7 @@
 ﻿using RAGamuffin.Builders;
 using RAGamuffin.Core;
 using RAGamuffin.Embedding;
+using RAGamuffin.Enums;
 using RAGamuffin.Ingestion;
 using InstructSharp;
 using InstructSharp.Clients.ChatGPT;
@@ -32,10 +33,12 @@ namespace RAGamuffin.Examples.TrainAndSearch
 
         // ==================== TRAINING CONFIGURATION ====================
 
-        // Set to true to drop existing data and retrain from scratch
-        // For this demo, we will retrain the database each time
-        // If it's set to false, it will run the ingestion engine but will not save the data to the database
-        private const bool RetrainData = true;
+        // Choose your training strategy:
+        // • RetrainFromScratch: Drop all existing data and retrain from scratch
+        // • IncrementalAdd: Add new documents to existing vector store (skip if document already exists)
+        // • IncrementalUpdate: Add new documents and update existing ones (replace if document exists)
+        // • ProcessOnly: Only process documents, don't perform vector operations
+        private const TrainingStrategy TrainingStrategyType = TrainingStrategy.RetrainFromScratch;
 
         // Maximum number of relevant chunks to retrieve during search
         private const int MaxSearchResults = 5;
@@ -63,7 +66,10 @@ namespace RAGamuffin.Examples.TrainAndSearch
                 .WithEmbeddingModel(new OnnxEmbedder(EmbeddingModelPath, EmbeddingTokenizerPath))
 
                 // Configure vector database
-                .WithVectorDatabase(new SqliteDatabaseModel(dbPath, CollectionName, RetrainData))
+                .WithVectorDatabase(new SqliteDatabaseModel(dbPath, CollectionName))
+
+                // Configure training strategy
+                .WithTrainingStrategy(TrainingStrategyType)
 
                 // Configure PDF processing options (Below are the defaults)
                 .WithPdfOptions(new PdfHybridParagraphIngestionOptions
@@ -83,16 +89,15 @@ namespace RAGamuffin.Examples.TrainAndSearch
                     UseMetadata = true  // Include document metadata
                 })
 
-                // Set training files and database behavior
+                // Set training files
                 .WithTrainingFiles(trainingFiles)
-                .DropDatabaseAndRetrain(RetrainData)
                 .Build();
 
             // ============================================================
             //                    TRAIN THE PIPELINE
             // ============================================================
 
-            Console.WriteLine("Starting document ingestion...");
+            Console.WriteLine($"Starting document ingestion with strategy: {TrainingStrategyType}...");
             var ingestedItems = await pipeline.Train(trainingFiles);
             Console.WriteLine($"Successfully ingested {ingestedItems.Count()} document chunks\n");
 
