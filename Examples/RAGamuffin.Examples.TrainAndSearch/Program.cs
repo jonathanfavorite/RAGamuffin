@@ -170,7 +170,7 @@ namespace RAGamuffin.Examples.TrainAndSearch
             // Using InstructSharp - another package maintained by the author
             // Learn more at: https://github.com/jonathanfavorite/InstructSharp
 
-            ChatGPTClient client = new("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");
+            ChatGPTClient client = new("YOUR-OPENAI-API-KEY");
 
             ChatGPTRequest request = new()
             {
