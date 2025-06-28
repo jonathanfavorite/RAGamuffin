@@ -61,25 +61,29 @@ public class IngestionTrainingBuilder
         return this;
     }
 
-    public async Task<List<IngestedItem>> BuildAndIngestAsync(CancellationToken cancellationToken = default)
+    public RAGamuffinModel Build()
     {
         ValidateConfiguration();
 
-        var factory = new IngestionEngineFactory();
-        var manager = new MultiFileIngestionManager(factory, _embedder, _vectorStore, _dropDatabaseAndRetrainOnLoad);
-
-        foreach (var option in _fileTypeOptions)
-        {
-            manager.WithFileTypeOptions(option.Key, option.Value);
-        }
-
-        return await manager.IngestFilesAsync(_trainingFiles, cancellationToken);
+        return new RAGamuffinModel(_embedder, _vectorStore, _dropDatabaseAndRetrainOnLoad, _fileTypeOptions);
     }
 
-    public async Task Build(CancellationToken cancellationToken = default)
+    public async Task<List<IngestedItem>> Train(CancellationToken cancellationToken = default)
     {
-        ValidateConfiguration();
+        var model = Build();
+        return await model.Train(_trainingFiles, cancellationToken);
+    }
 
+    public async Task<List<IngestedItem>> BuildAndIngestAsync(CancellationToken cancellationToken = default)
+    {
+        var model = Build();
+        return await model.IngestAndTrain(_trainingFiles, cancellationToken);
+    }
+
+    public async Task<List<IngestedItem>> BuildAsync(CancellationToken cancellationToken = default)
+    {
+        var model = Build();
+        return await model.Ingest(_trainingFiles, cancellationToken);
     }
 
     public IIngestionEngine BuildSingleEngine()
@@ -95,7 +99,7 @@ public class IngestionTrainingBuilder
             return factory.CreateEngine(_trainingFiles);
         }
         
-        throw new InvalidOperationException("Multiple file types detected. Use BuildAndIngestAsync() for mixed file types.");
+        throw new InvalidOperationException("Multiple file types detected. Use Train() for mixed file types.");
     }
 
     private void ValidateConfiguration()
@@ -116,49 +120,3 @@ public class IngestionTrainingBuilder
         }
     }
 }
-
-/*
-
-// Single file type example
-var items = await new IngestionTrainingBuilder(EmbeddingProviders.Onnx)
-    .WithEmbeddingModel(new OnnxEmbeddingModel("path/to/model.onnx", "path/to/tokenizer.json"))
-    .WithVectorDatabase(new SqliteDatabaseModel("path/to/database", "database_name.db", "collection_name"))
-    .WithPdfOptions(new PdfHybridParagraphIngestionOptions
-    {
-        MinSize = 0,
-        MaxSize = 1200,
-        Overlap = 500,
-        UseMetadata = true
-    })
-    .WithTrainingFiles(new string[] { "path/to/file1.pdf", "path/to/file2.pdf" })
-    .DropDatabaseAndRetrain(true)
-    .BuildAndIngestAsync();
-
-// Multiple file types example (PDF + any other file type)
-var items = await new IngestionTrainingBuilder(EmbeddingProviders.Onnx)
-    .WithEmbeddingModel(new OnnxEmbeddingModel("path/to/model.onnx", "path/to/tokenizer.json"))
-    .WithVectorDatabase(new SqliteDatabaseModel("path/to/database", "database_name.db", "collection_name"))
-    .WithPdfOptions(new PdfHybridParagraphIngestionOptions
-    {
-        MinSize = 0,
-        MaxSize = 1200,
-        Overlap = 500,
-        UseMetadata = true
-    })
-    .WithTextOptions(new TextHybridParagraphIngestionOptions
-    {
-        MinSize = 500,
-        MaxSize = 1000,
-        Overlap = 200,
-        UseMetadata = true
-    })
-    .WithTrainingFiles(new string[] { 
-        "path/to/file1.pdf", 
-        "path/to/file2.txt", 
-        "path/to/file3.md",
-        "path/to/file4.html"
-    })
-    .DropDatabaseAndRetrain(true)
-    .BuildAndIngestAsync();
-
-*/

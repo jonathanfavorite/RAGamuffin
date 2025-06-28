@@ -29,7 +29,12 @@ public class MultiFileIngestionManager
 
     public async Task<List<IngestedItem>> IngestFilesAsync(string[] filePaths, CancellationToken cancellationToken = default)
     {
-        if (_dropDatabaseAndRetrainOnLoad)
+        return await IngestFilesAsync(filePaths, true, cancellationToken);
+    }
+
+    public async Task<List<IngestedItem>> IngestFilesAsync(string[] filePaths, bool performVectorOperations, CancellationToken cancellationToken = default)
+    {
+        if (performVectorOperations && _dropDatabaseAndRetrainOnLoad)
         {
             await _vectorStore.DropCollectionAsync();
         }
@@ -59,10 +64,13 @@ public class MultiFileIngestionManager
             var engine = _factory.CreateEngine(files);
             var items = await engine.IngestAsync(files, options, cancellationToken);
             
-            foreach (var item in items)
+            if (performVectorOperations)
             {
-                var embedding = await _embedder.EmbedAsync(item.Text, cancellationToken);
-                await _vectorStore.UpsertAsync(item.Id, embedding, item.Metadata);
+                foreach (var item in items)
+                {
+                    var embedding = await _embedder.EmbedAsync(item.Text, cancellationToken);
+                    await _vectorStore.UpsertAsync(item.Id, embedding, item.Metadata);
+                }
             }
             
             allItems.AddRange(items);

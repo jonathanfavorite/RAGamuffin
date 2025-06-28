@@ -1,85 +1,75 @@
-﻿using InstructSharp.Clients.ChatGPT;
+﻿using System;
+using System.IO;
+using System.Threading.Tasks;
 using InstructSharp.Core;
-using Microsoft.Extensions.VectorData;
-using RAGamuffin.Abstractions;
 using RAGamuffin.Builders;
 using RAGamuffin.Core;
 using RAGamuffin.Embedding;
 using RAGamuffin.Ingestion;
 using RAGamuffin.VectorStores;
 
-// ##############################
-// SETUP
-// ##############################
-
-// File paths for the ONNX embedding model and tokenizer
-//https://huggingface.co/sentence-transformers/all-mpnet-base-v2/blob/main/onnx/model.onnx
-const string EMBEDDING_MODEL_PATH = @"C:\RAGamuffin\model.onnx"; 
-
-//https://huggingface.co/sentence-transformers/all-mpnet-base-v2/resolve/main/tokenizer.json
-const string EMBEDDING_TOKENIZER_PATH = @"C:\RAGamuffin\tokenizer.json"; 
-
-// SQLite database configuration
-const string DATABASE_LOCATION = @"C:\RAGamuffin\";
-const string DATABASE_NAME = @"RAGamuffin_documents.db";
-const string DATABASE_COLLECTION_NAME = "handbook_documents";
-
-string DATABASE_FULL_PATH = Path.Combine(DATABASE_LOCATION, DATABASE_NAME);
-
-// Flag to control whether to rebuild the vector database from source files
-const bool RETRAIN_DATA = true;
-
-const string CHATGPT_API_KEY = "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";
-
-// Maximum number of results to return from the vector store search
-const int MAX_SEARCH_RESULTS = 5;
-
-// Search query to find relevant information in the ingested documents
-string searchQuery = "Are there scenarios where I would be exmept of overtime?";
-
-// ##############################
-// TRAINING DOCUMENTS
-// ##############################
-
-string[] TRAINING_FILES = [
-    @"C:\RAGamuffin\training-files\company-handbook.pdf"
-];
-
-// ##############################
-// EMBEDDING
-// ##############################
-
-var embedder = new OnnxEmbedder(EMBEDDING_MODEL_PATH, EMBEDDING_TOKENIZER_PATH);
-var dbModel = new SqliteDatabaseModel(DATABASE_FULL_PATH, DATABASE_COLLECTION_NAME, RETRAIN_DATA);
-
-var builder = new IngestionTrainingBuilder()
-    .WithEmbeddingModel(embedder)
-    .WithVectorDatabase(dbModel)
-    .WithPdfOptions(new PdfHybridParagraphIngestionOptions
-    {
-        MinSize = 0,
-        MaxSize = 1200,
-        Overlap = 500,
-        UseMetadata = true
-    })
-    .WithTextOptions(new TextHybridParagraphIngestionOptions
-    {
-        MinSize = 500,
-        MaxSize = 1000,
-        Overlap = 200,
-        UseMetadata = true
-    })
-    .WithTrainingFiles(TRAINING_FILES)
-    .DropDatabaseAndRetrain(true);
-
-Console.WriteLine("Chunking data...");
-var ingestedItems = await builder.BuildAndIngestAsync();
-
-Console.WriteLine("Vectorizing & Saving Data...");
-foreach (IngestedItem ingestedItem in ingestedItems)
+namespace Example
 {
-    // Generate embeddings for each chunk
-    ingestedItem.Vectors = await embedder.EmbedAsync(ingestedItem.Text);
-    // Upsert into the vector store (insert or update)
-    await vectorStore.UpsertAsync(ingestedItem.Id, ingestedItem.Vectors, ingestedItem.Metadata);
+    static class Program
+    {
+        // Embedding Model
+        // Here are the type/model/tokenizers I recommend when getting started
+        // - Type: Onnx
+        // - Model: https://huggingface.co/sentence-transformers/all-mpnet-base-v2/blob/main/onnx/model.onnx
+        // - Tokenizer: https://huggingface.co/sentence-transformers/all-mpnet-base-v2/resolve/main/tokenizer.json
+        private const string EmbeddingModelPath = @"C:\RAGamuffin\model.onnx";
+        private const string EmbeddingTokenizerPath = @"C:\RAGamuffin\tokenizer.json";
+
+        // Database configuration
+        // If the database does not exist, it will be created automatically.
+        // To make things simple use the sqlite database provider (created by default).
+        private const string DatabaseDirectory = @"C:\RAGamuffin\";
+        private const string DatabaseName = "RAGamuffin_documents.db";
+        private const string CollectionName = "handbook_documents";
+
+        // Set to true if you want to drop/clear the database and retrain the data.
+        private const bool RetrainData = true;
+
+        // Maximum number of search results to return
+        private const int MaxSearchResults = 5;
+
+        static async Task Main()
+        {
+            var dbPath = Path.Combine(DatabaseDirectory, DatabaseName);
+
+            var trainingFiles = new[] 
+            {
+                @"C:\RAGamuffin\training-files\company-handbook.pdf"
+            };
+
+            // Build ingestion pipeline
+            var pipeline = new IngestionTrainingBuilder()
+                .WithEmbeddingModel(new OnnxEmbedder(EmbeddingModelPath, EmbeddingTokenizerPath))
+                .WithVectorDatabase(new SqliteDatabaseModel(dbPath, CollectionName, RetrainData))
+                .WithPdfOptions(new PdfHybridParagraphIngestionOptions
+                {
+                    MinSize = 0,
+                    MaxSize = 1200,
+                    Overlap = 500,
+                    UseMetadata = true
+                })
+                .WithTextOptions(new TextHybridParagraphIngestionOptions
+                {
+                    MinSize = 500,
+                    MaxSize = 1000,
+                    Overlap = 200,
+                    UseMetadata = true
+                })
+                .WithTrainingFiles(trainingFiles)
+                .DropDatabaseAndRetrain(RetrainData)
+                .Build();
+
+            // Train with specified files
+            var ingestedItems = await pipeline.Train(trainingFiles);
+
+            // Execute a simple vector search
+            var results = await pipeline.Search("What are the company policies?", MaxSearchResults);
+
+        }
+    }
 }

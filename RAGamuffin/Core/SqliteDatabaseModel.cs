@@ -1,4 +1,5 @@
 ﻿using RAGamuffin.Abstractions;
+using RAGamuffin.VectorStores;
 
 namespace RAGamuffin.Core;
 public class SqliteDatabaseModel : IVectorDatabaseModel

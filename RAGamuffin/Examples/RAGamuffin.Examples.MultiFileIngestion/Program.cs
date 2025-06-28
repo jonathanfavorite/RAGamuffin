@@ -17,7 +17,8 @@ class Program
         var embedder = new OnnxEmbedder("path/to/model.onnx", "path/to/tokenizer.json");
         var dbModel = new SqliteDatabaseModel("test.db", "test_collection", true);
 
-        var builder = new IngestionTrainingBuilder(EmbeddingProviders.Onnx)
+        // Build the model and get access to all components
+        var ragModel = new IngestionTrainingBuilder()
             .WithEmbeddingModel(embedder)
             .WithVectorDatabase(dbModel)
             .WithPdfOptions(new PdfHybridParagraphIngestionOptions
@@ -41,12 +42,38 @@ class Program
                 "path/to/document3.md",
                 "path/to/document4.html"
             })
-            .DropDatabaseAndRetrain(true);
+            .DropDatabaseAndRetrain(true)
+            .Build();
 
         try
         {
-            var ingestedItems = await builder.BuildAndIngestAsync();
-            Console.WriteLine($"Successfully ingested {ingestedItems.Count} items");
+            // Train the model
+            var ingestedItems = await ragModel.Train(new string[]
+            {
+                "path/to/document1.pdf",
+                "path/to/document2.txt",
+                "path/to/document3.md",
+                "path/to/document4.html"
+            });
+            
+            Console.WriteLine($"Training complete! Processed {ingestedItems.Count} items");
+            
+            // Search using the same vector store instance
+            var searchQuery = "What are the company policies?";
+            var results = await ragModel.Search(searchQuery, 5);
+            
+            Console.WriteLine($"\nSearch results for: '{searchQuery}'");
+            foreach (var result in results)
+            {
+                Console.WriteLine($"Score: {result.Score:P2} — ID: {result.Key}");
+                if (result.MetaData != null && result.MetaData.ContainsKey("source"))
+                {
+                    Console.WriteLine($"  Source: {result.MetaData["source"]}");
+                }
+            }
+            
+            // Or access components directly
+            var directResults = await ragModel.VectorStore.SearchAsync("Another query", ragModel.Embedder, 3);
             
             foreach (var item in ingestedItems.Take(3))
             {

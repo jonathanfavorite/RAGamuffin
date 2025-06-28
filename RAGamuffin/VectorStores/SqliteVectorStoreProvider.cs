@@ -8,6 +8,7 @@ using System.Text.Json;
 using RAGamuffin.Abstractions;
 using RAGamuffin.Helpers;
 using RAGamuffin.VectorStores.Models;
+using System.Threading;
 
 namespace RAGamuffin.VectorStores;
 public class SqliteVectorStoreProvider : IVectorStore
@@ -54,6 +55,19 @@ public class SqliteVectorStoreProvider : IVectorStore
     public async Task<IEnumerable<(string Key, float Score, IDictionary<string, object>? MetaData)>>
     SearchAsync(float[] query, int topK)
     {
+        return await SearchAsync(query, topK, CancellationToken.None);
+    }
+
+    public async Task<IEnumerable<(string Key, float Score, IDictionary<string, object>? MetaData)>>
+    SearchAsync(string query, IEmbedder embedder, int topK, CancellationToken cancellationToken = default)
+    {
+        var queryVector = await embedder.EmbedAsync(query, cancellationToken);
+        return await SearchAsync(queryVector, topK, cancellationToken);
+    }
+
+    private async Task<IEnumerable<(string Key, float Score, IDictionary<string, object>? MetaData)>>
+    SearchAsync(float[] query, int topK, CancellationToken cancellationToken)
+    {
         // 1) Kick off the vector search
         var asyncResults = _collection.SearchAsync(query, topK);
 
@@ -86,6 +100,36 @@ public class SqliteVectorStoreProvider : IVectorStore
 
     public async Task DropCollectionAsync()
     {
-        await _collection.DeleteAsync();
+        // Get all keys from the collection using a dummy search with a very large topK
+        var allKeys = new List<string>();
+        
+        // Get the vector dimension from the MicrosoftVectorRecord attribute
+        var vectorDimension = 768; // Default dimension from [VectorStoreVector(768)]
+        
+        try
+        {
+            // Use a dummy vector (all zeros) to search for all records
+            var dummyVector = new float[vectorDimension];
+            
+            // Search with a large topK to get all records (10000 should be sufficient for most use cases)
+            var searchResults = _collection.SearchAsync(dummyVector, 10000);
+            
+            await foreach (var result in searchResults.ConfigureAwait(false))
+            {
+                allKeys.Add(result.Record.Id);
+            }
+            
+            // If we found any keys, delete them all at once
+            if (allKeys.Count > 0)
+            {
+                await _collection.DeleteAsync(allKeys).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            // If the search fails (e.g., no records), that's fine - the collection is already empty
+            // Log or handle the exception as needed
+            Console.WriteLine($"Warning: Could not retrieve all keys for deletion: {ex.Message}");
+        }
     }
 }
