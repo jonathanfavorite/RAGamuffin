@@ -7,7 +7,7 @@
     <Authors>Jonathan Favorite</Authors>
     <PackageIconUrl>https://raw.githubusercontent.com/jonathanfavorite/RAGamuffin/master/assets/icon.jpg</PackageIconUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
