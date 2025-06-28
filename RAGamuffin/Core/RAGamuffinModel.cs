@@ -73,4 +73,22 @@ public class RAGamuffinModel
     {
         return await VectorStore.SearchAsync(queryVector, topK);
     }
+
+    public async Task<string[]> SearchAndReturnTexts(string query, int topK, CancellationToken cancellationToken = default)
+    {
+        List<string> texts = new();
+
+        var results = await Search(query, topK, cancellationToken);
+        foreach (var result in results)
+        {
+            // Extract the original text from metadata for LLM context
+            if (result.MetaData != null && result.MetaData.ContainsKey("text"))
+            {
+                string text = result.MetaData["text"].ToString() ?? "";
+                texts.Add(text);
+            }
+        }
+
+        return texts.ToArray();
+    }
 } 

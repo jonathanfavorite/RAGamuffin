@@ -127,9 +127,7 @@ public class SqliteVectorStoreProvider : IVectorStore
         }
         catch (Exception ex)
         {
-            // If the search fails (e.g., no records), that's fine - the collection is already empty
-            // Log or handle the exception as needed
-            Console.WriteLine($"Warning: Could not retrieve all keys for deletion: {ex.Message}");
+
         }
     }
 }
