@@ -1,4 +1,5 @@
-﻿Microsoft Visual Studio Solution File, Format Version 12.00
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -13,6 +14,10 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RAGamuffin.Examples.MetadataRetrieval", "RAGamuffin.Examples.MetadataRetrieval\RAGamuffin.Examples.MetadataRetrieval.csproj", "{F2C9E3F6-8B2C-4D9E-0F5A-7B3C1D8E4F5A}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RAGamuffin", "..\RAGamuffin\RAGamuffin.csproj", "{D1DB0CF9-78FF-494F-A582-C7DF791C04F3}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RAGamuffin.Examples.DatabaseSchemaTrainAndSearch", "RAGamuffin.Examples.DatabaseSchemaTrainAndSearch\RAGamuffin.Examples.DatabaseSchemaTrainAndSearch.csproj", "{AF5EF828-EE18-4AAA-A2A0-B75764A6D01C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RAGamuffin.Examples.TrainAndSearchWikis", "RAGamuffin.Examples.TrainAndSearchWikis\RAGamuffin.Examples.TrainAndSearchWikis.csproj", "{30E9A1F3-608D-4D82-87FA-CFE0949C37BB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -44,6 +49,14 @@ Global
 		{D1DB0CF9-78FF-494F-A582-C7DF791C04F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D1DB0CF9-78FF-494F-A582-C7DF791C04F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D1DB0CF9-78FF-494F-A582-C7DF791C04F3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AF5EF828-EE18-4AAA-A2A0-B75764A6D01C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF5EF828-EE18-4AAA-A2A0-B75764A6D01C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF5EF828-EE18-4AAA-A2A0-B75764A6D01C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF5EF828-EE18-4AAA-A2A0-B75764A6D01C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{30E9A1F3-608D-4D82-87FA-CFE0949C37BB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{30E9A1F3-608D-4D82-87FA-CFE0949C37BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{30E9A1F3-608D-4D82-87FA-CFE0949C37BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{30E9A1F3-608D-4D82-87FA-CFE0949C37BB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

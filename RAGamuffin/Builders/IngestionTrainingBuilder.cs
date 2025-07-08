@@ -15,6 +15,7 @@ public class IngestionTrainingBuilder
     private Dictionary<string, IIngestionOptions> _fileTypeOptions = new();
     private TrainingStrategy _trainingStrategy = TrainingStrategy.RetrainFromScratch;
     private bool _allowTextTraining = false;
+    private int? _vectorSize = null;
 
     public IngestionTrainingBuilder WithEmbeddingModel(IEmbedder embedder)
     {
@@ -22,11 +23,18 @@ public class IngestionTrainingBuilder
         return this;
     }
 
+    public IngestionTrainingBuilder WithVectorSize(int dimension)
+    {
+        _vectorSize = dimension;
+        return this;
+    }
+
     public IngestionTrainingBuilder WithVectorDatabase(IVectorDatabaseModel vectorDatabaseModel)
     {
+        int dimension = _vectorSize ?? _embedder?.Dimension ?? 768;
         _vectorStore = vectorDatabaseModel switch
         {
-            SqliteDatabaseModel sqliteDb => new SqliteVectorStoreProvider(sqliteDb.SqliteDbPath, sqliteDb.CollectionName),
+            SqliteDatabaseModel sqliteDb => new SqliteVectorStoreProvider(sqliteDb.SqliteDbPath, sqliteDb.CollectionName, dimension),
             _ => throw new ArgumentException($"Unsupported database model: {vectorDatabaseModel.GetType().Name}", nameof(vectorDatabaseModel))
         };
 
@@ -208,12 +216,12 @@ public class IngestionTrainingBuilder
             throw new InvalidOperationException("Vector database must be set before building.");
         }
 
-        // Only require training files for file-based training, not for text-based
-        if ((_trainingStrategy == TrainingStrategy.RetrainFromScratch) &&
-            (_trainingFiles == null || _trainingFiles.Length == 0) &&
-            !_allowTextTraining)
-        {
-            throw new InvalidOperationException("Training files must be set before building when using RetrainFromScratch strategy.");
-        }
+        //// Only require training files for file-based training, not for text-based
+        //if ((_trainingStrategy == TrainingStrategy.RetrainFromScratch) &&
+        //    (_trainingFiles == null || _trainingFiles.Length == 0) &&
+        //    !_allowTextTraining)
+        //{
+        //    throw new InvalidOperationException("Training files must be set before building when using RetrainFromScratch strategy.");
+        //}
     }
 }

@@ -14,7 +14,7 @@ public class RAGamuffinModel
     public Dictionary<string, IIngestionOptions> FileTypeOptions { get; }
     public TrainingStrategy TrainingStrategy { get; }
 
-    internal RAGamuffinModel(
+    public RAGamuffinModel(
         IEmbedder embedder,
         IVectorStore vectorStore,
         TrainingStrategy trainingStrategy,
@@ -130,9 +130,13 @@ public class RAGamuffinModel
         var processedCount = 0;
         var skippedCount = 0;
         var updatedCount = 0;
+        var totalCount = ingestedItems.Count;
+        var startTime = DateTime.Now;
         
-        foreach (IngestedItem ingestedItem in ingestedItems)
+        // Process items with progress tracking
+        for (int i = 0; i < ingestedItems.Count; i++)
         {
+            var ingestedItem = ingestedItems[i];
             bool shouldProcess = true;
             
             if (TrainingStrategy == TrainingStrategy.IncrementalAdd)
@@ -155,13 +159,25 @@ public class RAGamuffinModel
             
             if (shouldProcess)
             {
-                ingestedItem.Vectors = await Embedder.EmbedAsync(ingestedItem.Text, cancellationToken);
+                // Note: Vectors are already computed during batch embedding, so we don't need to embed again
                 await VectorStore.UpsertAsync(ingestedItem.Id, ingestedItem.Vectors, ingestedItem.Metadata);
                 processedCount++;
             }
+            
+            // Progress reporting every 10 items or at the end
+            if ((i + 1) % 10 == 0 || i == ingestedItems.Count - 1)
+            {
+                var timeSinceStart = DateTime.Now - startTime;
+                var progress = (double)(i + 1) / totalCount;
+                var estimatedTotalTime = TimeSpan.FromSeconds(timeSinceStart.TotalSeconds / progress);
+                var estimatedRemaining = estimatedTotalTime - timeSinceStart;
+                
+                Console.WriteLine($"Vectorizing progress: {i + 1}/{totalCount} ({progress:P1})... (Total: {timeSinceStart.TotalMinutes:F1}m, Est. remaining: {estimatedRemaining.TotalMinutes:F1}m)");
+            }
         }
         
-        Console.WriteLine($"Vectorization complete!");
+        var totalTime = DateTime.Now - startTime;
+        Console.WriteLine($"Vectorization complete! Total time: {totalTime.TotalMinutes:F1} minutes");
         Console.WriteLine($"Processed: {processedCount}, Skipped: {skippedCount}, Updated: {updatedCount}");
 
         return ingestedItems;
@@ -179,28 +195,44 @@ public class RAGamuffinModel
             ? options as TextHybridParagraphIngestionOptions ?? new TextHybridParagraphIngestionOptions()
             : new TextHybridParagraphIngestionOptions();
 
+        // Process items in batches for better performance
+        const int batchSize = 32; // Process 32 items at a time
+        var processedCount = 0;
+        var totalCount = textItems.Length;
+        
+        Console.WriteLine($"Processing {totalCount} items in batches of {batchSize}...");
+
+        // First pass: collect all texts that need embedding
+        var textsToEmbed = new List<string>();
+        var itemsToEmbed = new List<IngestedItem>();
+        
         foreach (var textItem in textItems)
         {
-            // Chunk the text using the same logic as text files
-            var chunks = ChunkingHelper.ChunkTextFixedSize(
-                textItem.Content, 
-                textOptions.MaxSize, 
-                textOptions.Overlap
-            );
-
-            for (int i = 0; i < chunks.Count; i++)
+            // Validate text item
+            if (textItem == null)
             {
-                var chunk = chunks[i];
-                var chunkId = $"{textItem.Id}_chunk_{i}";
-                
-                // Create base metadata
+                Console.WriteLine("Warning: Skipping null TextItem");
+                continue;
+            }
+            
+            if (string.IsNullOrEmpty(textItem.Content))
+            {
+                Console.WriteLine($"Warning: Skipping TextItem with null or empty content. ID: {textItem.Id}");
+                continue;
+            }
+            
+            // Check if chunking should be skipped for this item
+            bool shouldSkipChunking = textItem.SkipChunking || !textOptions.EnableChunking;
+            
+            if (shouldSkipChunking)
+            {
+                // Store as single item without chunking
                 var metadata = new Dictionary<string, object>
                 {
-                    ["text"] = chunk,
+                    ["text"] = textItem.Content,
                     ["source"] = textItem.Id,
-                    ["chunk_index"] = i,
-                    ["total_chunks"] = chunks.Count,
-                    ["timestamp"] = textItem.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
+                    ["timestamp"] = textItem.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"),
+                    ["chunked"] = false
                 };
 
                 // Merge with any custom metadata from the TextItem
@@ -218,15 +250,112 @@ public class RAGamuffinModel
                 
                 var ingestedItem = new IngestedItem
                 {
-                    Id = chunkId,
-                    Text = chunk,
+                    Id = textItem.Id,
+                    Text = textItem.Content,
                     Source = textItem.Id,
-                    Vectors = performVectorOperations ? await Embedder.EmbedAsync(chunk, cancellationToken) : null,
+                    Vectors = null, // Will be set after batch embedding
                     Metadata = metadata
                 };
-
+                
+                textsToEmbed.Add(textItem.Content);
+                itemsToEmbed.Add(ingestedItem);
                 allItems.Add(ingestedItem);
             }
+            else
+            {
+                // Apply normal chunking logic
+                var chunks = ChunkingHelper.ChunkTextFixedSize(
+                    textItem.Content, 
+                    textOptions.MaxSize, 
+                    textOptions.Overlap
+                );
+
+                for (int i = 0; i < chunks.Count; i++)
+                {
+                    var chunk = chunks[i];
+                    var chunkId = $"{textItem.Id}_chunk_{i}";
+                    
+                    // Create base metadata
+                    var metadata = new Dictionary<string, object>
+                    {
+                        ["text"] = chunk,
+                        ["source"] = textItem.Id,
+                        ["chunk_index"] = i,
+                        ["total_chunks"] = chunks.Count,
+                        ["timestamp"] = textItem.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"),
+                        ["chunked"] = true
+                    };
+
+                    // Merge with any custom metadata from the TextItem
+                    if (textItem.Metadata != null)
+                    {
+                        foreach (var kvp in textItem.Metadata)
+                        {
+                            // Don't override system metadata keys
+                            if (!metadata.ContainsKey(kvp.Key))
+                            {
+                                metadata[kvp.Key] = kvp.Value;
+                            }
+                        }
+                    }
+                    
+                    var ingestedItem = new IngestedItem
+                    {
+                        Id = chunkId,
+                        Text = chunk,
+                        Source = textItem.Id,
+                        Vectors = null, // Will be set after batch embedding
+                        Metadata = metadata
+                    };
+
+                    textsToEmbed.Add(chunk);
+                    itemsToEmbed.Add(ingestedItem);
+                    allItems.Add(ingestedItem);
+                }
+            }
+        }
+
+        // Now perform batch embedding
+        if (performVectorOperations && textsToEmbed.Count > 0)
+        {
+            Console.WriteLine($"Performing batch embedding for {textsToEmbed.Count} items...");
+            
+            const int embeddingBatchSize = 100; // Process 100 items at a time
+            var totalBatches = (textsToEmbed.Count + embeddingBatchSize - 1) / embeddingBatchSize;
+            var currentBatch = 0;
+            var startTime = DateTime.Now;
+            var lastBatchTime = startTime;
+            
+            for (int i = 0; i < textsToEmbed.Count; i += embeddingBatchSize)
+            {
+                currentBatch++;
+                var currentBatchSize = Math.Min(embeddingBatchSize, textsToEmbed.Count - i);
+                var batchTexts = textsToEmbed.Skip(i).Take(currentBatchSize).ToArray();
+                
+                var timeSinceStart = DateTime.Now - startTime;
+                var estimatedTotalTime = TimeSpan.FromSeconds((timeSinceStart.TotalSeconds / currentBatch) * totalBatches);
+                var estimatedRemaining = estimatedTotalTime - timeSinceStart;
+                Console.WriteLine($"Processing batch {currentBatch}/{totalBatches} ({i + currentBatchSize}/{textsToEmbed.Count} items)... (Total: {timeSinceStart.TotalMinutes:F1}m, Est. remaining: {estimatedRemaining.TotalMinutes:F1}m)");
+                
+                var batchStartTime = DateTime.Now;
+                var batchEmbeddings = await Embedder.EmbedBatchAsync(batchTexts, cancellationToken);
+                var batchTime = DateTime.Now - batchStartTime;
+                
+                // Assign embeddings back to items
+                for (int j = 0; j < currentBatchSize && i + j < itemsToEmbed.Count; j++)
+                {
+                    if (j < batchEmbeddings.Length)
+                    {
+                        itemsToEmbed[i + j].Vectors = batchEmbeddings[j];
+                    }
+                }
+                
+                lastBatchTime = DateTime.Now;
+                Console.WriteLine($"Completed batch {currentBatch}/{totalBatches} in {batchTime.TotalSeconds:F1}s");
+            }
+            
+            var totalTime = DateTime.Now - startTime;
+            Console.WriteLine($"Batch embedding complete! Total time: {totalTime.TotalMinutes:F1} minutes");
         }
 
         return allItems;

@@ -26,6 +26,12 @@ public class TextItem
     /// </summary>
     public Dictionary<string, object>? Metadata { get; set; }
 
+    /// <summary>
+    /// When true, this text item will not be chunked and will be stored as a single vector
+    /// Useful for structured data, database schemas, or any content that should remain intact
+    /// </summary>
+    public bool SkipChunking { get; set; } = false;
+
     public TextItem()
     {
         Metadata = new Dictionary<string, object>();
