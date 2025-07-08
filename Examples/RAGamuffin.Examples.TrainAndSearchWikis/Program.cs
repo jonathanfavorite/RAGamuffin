@@ -2,13 +2,13 @@
 using InstructSharp.Core;
 using RAGamuffin.Examples.TrainAndSearchWikis;
 
-RAGManager manager = new(@"C:\RAGamuffin\winteam-wiki.db", @"C:\RAGamuffin\model.onnx", @"C:\RAGamuffin\tokenizer.json");
+RAGManager manager = new(@"C:\RAGamuffin\wiki.db", @"C:\RAGamuffin\model.onnx", @"C:\RAGamuffin\tokenizer.json");
 
 bool trainFiles = false; // Set to false to skip training and just load the model for searching
 
 if (trainFiles)
 {
-    await manager.TrainFiles(@"C:\RAGamuffin\training-files\winteam-wiki-repo", new string[] { ".md", ".MD" });
+    await manager.TrainFiles(@"C:\RAGamuffin\training-files\wiki-repo", new string[] { ".md", ".MD" });
 }
 
 Console.WriteLine();
@@ -16,7 +16,7 @@ Console.WriteLine();
 
 bool stillAskingQuestion = true;
 
-ChatGPTClient llmClient = new("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");
+ChatGPTClient llmClient = new("YOUR API KEY HERE");
 
 while (stillAskingQuestion)
 {
