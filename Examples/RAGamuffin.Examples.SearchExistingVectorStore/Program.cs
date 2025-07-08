@@ -55,7 +55,7 @@ namespace RAGamuffin.Examples.SearchExistingVectorStore
             Console.WriteLine("Embedding model initialized");
 
             // Initialize the vector store provider (don't retrain - use existing data)
-            var vectorStore = new SqliteVectorStoreProvider(dbPath, CollectionName);
+            var vectorStore = new SqliteVectorStoreProvider(dbPath, CollectionName, embedder.Dimension);
             Console.WriteLine("Vector store provider initialized");
 
             // ============================================================

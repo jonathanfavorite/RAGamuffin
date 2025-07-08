@@ -321,6 +321,12 @@ public class TextHybridParagraphIngestionOptions : IIngestionOptions
     public IngestionStrategy Strategy { get; } = IngestionStrategy.HybridParagraphWithThreshold;
 
     /// <summary>
+    /// Global setting to enable/disable chunking for all text items
+    /// Can be overridden by individual TextItem.SkipChunking property
+    /// </summary>
+    public bool EnableChunking { get; set; } = true;
+
+    /// <summary>
     /// Minimum chunk size in characters (chunks smaller than this are filtered out)
     /// </summary>
     public int MinSize
@@ -329,7 +335,7 @@ public class TextHybridParagraphIngestionOptions : IIngestionOptions
         set
         {
             if (value < 0)
-                throw new ArgumentException("MinSize cannot be negative");
+                throw new ArgumentOutOfRangeException(nameof(value), "MinSize cannot be negative");
             _minSize = value;
         }
     }
@@ -381,6 +387,18 @@ public class TextHybridParagraphIngestionOptions : IIngestionOptions
         MaxSize = maxSize;
         Overlap = overlap;
         UseMetadata = useMetadata;
+    }
+
+    /// <summary>
+    /// Creates options with custom values including chunking control
+    /// </summary>
+    public TextHybridParagraphIngestionOptions(int minSize, int maxSize, int overlap, bool useMetadata, bool enableChunking)
+    {
+        MinSize = minSize;
+        MaxSize = maxSize;
+        Overlap = overlap;
+        UseMetadata = useMetadata;
+        EnableChunking = enableChunking;
     }
 
     /// <summary>

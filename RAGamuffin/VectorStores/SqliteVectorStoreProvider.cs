@@ -10,6 +10,7 @@ using RAGamuffin.Helpers;
 using RAGamuffin.VectorStores.Models;
 using System.Threading;
 using System.IO;
+using Microsoft.Data.Sqlite;
 
 namespace RAGamuffin.VectorStores;
 public class SqliteVectorStoreProvider : IVectorStore
@@ -17,21 +18,23 @@ public class SqliteVectorStoreProvider : IVectorStore
     private readonly SqliteVectorStore _store;
     private readonly SqliteCollection<string, MicrosoftVectorRecord> _collection;
     private readonly string _databasePath;
+    private readonly int _vectorDimension;
+    private readonly string _collectionName;
 
-    public SqliteVectorStoreProvider(string sqliteDbPath, string collectionName)
+    public SqliteVectorStoreProvider(string sqliteDbPath, string collectionName, int vectorDimension = 768)
     {
         _databasePath = sqliteDbPath;
+        _vectorDimension = vectorDimension;
+        _collectionName = collectionName;
         
-        // Build the ADO.NET connection string
-        var connString = $"Data Source={sqliteDbPath}";
+        // NOTE: The vector dimension is set at database creation time. If you change the embedding dimension,
+        // you must manually delete/recreate the database and collection. No dynamic schema checks are performed.
 
-        // Pass (connectionString, collectionName) per API
+        var connString = $"Data Source={sqliteDbPath}";
         _collection = new SqliteCollection<string, MicrosoftVectorRecord>(
             connString,
             collectionName
         );
-
-        // Ensure tables and vector virtual tables exist
         _collection.EnsureCollectionExistsAsync().GetAwaiter().GetResult();
     }
 
@@ -115,35 +118,93 @@ public class SqliteVectorStoreProvider : IVectorStore
 
     public async Task DropCollectionAsync()
     {
-        // Get all keys from the collection using a dummy search with a very large topK
-        var allKeys = new List<string>();
-        
-        // Get the vector dimension from the MicrosoftVectorRecord attribute
-        var vectorDimension = 768; // Default dimension from [VectorStoreVector(768)]
+        Console.WriteLine($"DEBUG: Dropping collection using improved approach");
         
         try
         {
-            // Use a dummy vector (all zeros) to search for all records
-            var dummyVector = new float[vectorDimension];
+            // Try direct SQL approach first
+            using var connection = new SqliteConnection($"Data Source={_databasePath}");
+            await connection.OpenAsync();
             
-            // Search with a large topK to get all records (10000 should be sufficient for most use cases)
-            var searchResults = _collection.SearchAsync(dummyVector, 10000);
-            
-            await foreach (var result in searchResults.ConfigureAwait(false))
+            try
             {
-                allKeys.Add(result.Record.Id);
+                // Delete all records from the main table
+                var deleteCommand = connection.CreateCommand();
+                deleteCommand.CommandText = $"DELETE FROM {_collectionName}";
+                var deletedCount = await deleteCommand.ExecuteNonQueryAsync();
+                
+                Console.WriteLine($"DEBUG: Deleted {deletedCount} records using direct SQL");
+                
+                // Also try to clear the vector table if it exists
+                try
+                {
+                    var deleteVectorCommand = connection.CreateCommand();
+                    deleteVectorCommand.CommandText = $"DELETE FROM vec_{_collectionName}";
+                    await deleteVectorCommand.ExecuteNonQueryAsync();
+                    Console.WriteLine($"DEBUG: Cleared vector table vec_{_collectionName}");
+                }
+                catch (Exception vecEx)
+                {
+                    Console.WriteLine($"DEBUG: Vector table cleanup failed (may not exist): {vecEx.Message}");
+                }
+                
+                return;
             }
-            
-            // If we found any keys, delete them all at once
-            if (allKeys.Count > 0)
+            catch (Exception sqlEx)
             {
-                await _collection.DeleteAsync(allKeys).ConfigureAwait(false);
+                Console.WriteLine($"DEBUG: Direct SQL deletion failed: {sqlEx.Message}");
+                
+                // Fallback to batched deletion approach
+                await DropCollectionUsingBatchedDeletion();
             }
         }
         catch (Exception ex)
         {
-            // If search fails, the collection might already be empty or there might be an issue
-            // We'll just continue - the collection will be effectively empty
+            Console.WriteLine($"DEBUG: Drop collection failed: {ex.Message}");
+            
+            // Final fallback: try batched deletion
+            try
+            {
+                await DropCollectionUsingBatchedDeletion();
+            }
+            catch (Exception fallbackEx)
+            {
+                Console.WriteLine($"DEBUG: Fallback deletion also failed: {fallbackEx.Message}");
+                // If everything fails, the collection will be effectively empty after this
+            }
+        }
+    }
+    
+    private async Task DropCollectionUsingBatchedDeletion()
+    {
+        Console.WriteLine($"DEBUG: Using batched deletion approach");
+        
+        // Get all keys using our improved method
+        var allKeys = (await GetDocumentIdsAsync()).ToList();
+        
+        if (allKeys.Count > 0)
+        {
+            Console.WriteLine($"DEBUG: Deleting {allKeys.Count} records in batches");
+            
+            // Delete in batches to avoid overwhelming the system
+            var batchSize = 100;
+            for (int i = 0; i < allKeys.Count; i += batchSize)
+            {
+                var batch = allKeys.Skip(i).Take(batchSize).ToList();
+                try
+                {
+                    await _collection.DeleteAsync(batch).ConfigureAwait(false);
+                    Console.WriteLine($"DEBUG: Deleted batch {i / batchSize + 1}, {batch.Count} records");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"DEBUG: Failed to delete batch: {ex.Message}");
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine($"DEBUG: No records found to delete");
         }
     }
 
@@ -164,35 +225,48 @@ public class SqliteVectorStoreProvider : IVectorStore
 
     public async Task<int> GetDocumentCountAsync()
     {
-        var count = 0;
-        
-        Console.WriteLine($"DEBUG: Counting documents using direct collection access");
+        Console.WriteLine($"DEBUG: Counting documents using direct SQL approach");
         
         try
         {
-            // Use a simple approach: try to get a small sample and count them
-            // This is more reliable than dummy vector search
-            var searchResults = _collection.SearchAsync(new float[768], 1000);
-            await foreach (var result in searchResults.ConfigureAwait(false))
+            // Use direct SQL to count records - more reliable than dummy vector search
+            using var connection = new SqliteConnection($"Data Source={_databasePath}");
+            await connection.OpenAsync();
+            
+            // Try to count from the main collection table
+            var countCommand = connection.CreateCommand();
+            countCommand.CommandText = $"SELECT COUNT(*) FROM {_collectionName}";
+            
+            var count = 0;
+            try
             {
-                count++;
-                if (count <= 3) // Only log first few for debugging
-                {
-                    Console.WriteLine($"DEBUG: Counted document {result.Record.Id}");
-                }
+                var result = await countCommand.ExecuteScalarAsync();
+                count = Convert.ToInt32(result);
+                Console.WriteLine($"DEBUG: Direct SQL count: {count}");
             }
+            catch (Exception sqlEx)
+            {
+                Console.WriteLine($"DEBUG: Direct SQL count failed: {sqlEx.Message}");
+                
+                // Fallback: Try with smaller batches using search
+                count = await GetDocumentCountUsingBatchedSearch();
+            }
+            
+            Console.WriteLine($"DEBUG: Final document count: {count}");
+            return count;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"DEBUG: Exception during count: {ex.Message}");
             Console.WriteLine($"DEBUG: Exception type: {ex.GetType().Name}");
             
-            // Try alternative approach: use GetAllDocumentsMetadataAsync
+            // Final fallback: try the metadata approach
             try
             {
                 var allDocs = await GetAllDocumentsMetadataAsync();
-                count = allDocs.Count();
+                var count = allDocs.Count();
                 Console.WriteLine($"DEBUG: Counted {count} documents using metadata approach");
+                return count;
             }
             catch (Exception ex2)
             {
@@ -200,31 +274,164 @@ public class SqliteVectorStoreProvider : IVectorStore
                 return 0;
             }
         }
+    }
+
+    private async Task<int> GetDocumentCountUsingBatchedSearch()
+    {
+        Console.WriteLine($"DEBUG: Using batched search approach for counting");
         
-        Console.WriteLine($"DEBUG: Final document count: {count}");
-        return count;
+        var totalCount = 0;
+        var batchSize = 100; // Much smaller batch size
+        var hasMoreResults = true;
+        var maxBatches = 100; // Safety limit
+        var currentBatch = 0;
+        
+        // Create a simple query vector (not all zeros)
+        var queryVector = new float[_vectorDimension];
+        for (int i = 0; i < Math.Min(10, _vectorDimension); i++)
+        {
+            queryVector[i] = 0.1f; // Small non-zero values
+        }
+        
+        while (hasMoreResults && currentBatch < maxBatches)
+        {
+            try
+            {
+                var skip = currentBatch * batchSize;
+                Console.WriteLine($"DEBUG: Counting batch {currentBatch + 1}, skip={skip}");
+                
+                // Search with smaller batch size
+                var searchResults = _collection.SearchAsync(queryVector, batchSize);
+                var batchCount = 0;
+                
+                await foreach (var result in searchResults.ConfigureAwait(false))
+                {
+                    batchCount++;
+                }
+                
+                totalCount += batchCount;
+                hasMoreResults = batchCount == batchSize; // If we got full batch, there might be more
+                currentBatch++;
+                
+                Console.WriteLine($"DEBUG: Batch {currentBatch} found {batchCount} documents");
+                
+                if (batchCount == 0)
+                {
+                    hasMoreResults = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"DEBUG: Batch search failed: {ex.Message}");
+                hasMoreResults = false;
+            }
+        }
+        
+        Console.WriteLine($"DEBUG: Batched search total count: {totalCount}");
+        return totalCount;
     }
 
     public async Task<IEnumerable<string>> GetDocumentIdsAsync()
     {
-        var documentIds = new List<string>();
-        var vectorDimension = 768;
-        var dummyVector = new float[vectorDimension];
+        Console.WriteLine($"DEBUG: Getting document IDs using direct SQL approach");
         
         try
         {
-            var searchResults = _collection.SearchAsync(dummyVector, int.MaxValue);
-            await foreach (var result in searchResults.ConfigureAwait(false))
+            // Use direct SQL to get IDs - more reliable than dummy vector search
+            using var connection = new SqliteConnection($"Data Source={_databasePath}");
+            await connection.OpenAsync();
+            
+            var idsCommand = connection.CreateCommand();
+            idsCommand.CommandText = $"SELECT Id FROM {_collectionName}";
+            
+            var documentIds = new List<string>();
+            
+            try
             {
-                documentIds.Add(result.Record.Id);
+                using var reader = await idsCommand.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var id = reader.GetString(0);
+                    documentIds.Add(id);
+                }
+                
+                Console.WriteLine($"DEBUG: Direct SQL found {documentIds.Count} document IDs");
+                return documentIds;
+            }
+            catch (Exception sqlEx)
+            {
+                Console.WriteLine($"DEBUG: Direct SQL ID retrieval failed: {sqlEx.Message}");
+                
+                // Fallback: Try with batched search
+                return await GetDocumentIdsUsingBatchedSearch();
             }
         }
         catch (Exception ex)
         {
-            // Return empty list if search fails
+            Console.WriteLine($"DEBUG: Error in GetDocumentIdsAsync: {ex.Message}");
+            Console.WriteLine($"DEBUG: Exception type: {ex.GetType().Name}");
+            return new List<string>();
+        }
+    }
+
+    private async Task<IEnumerable<string>> GetDocumentIdsUsingBatchedSearch()
+    {
+        Console.WriteLine($"DEBUG: Using batched search approach for getting IDs");
+        
+        var allDocumentIds = new List<string>();
+        var batchSize = 100; // Much smaller batch size
+        var hasMoreResults = true;
+        var maxBatches = 100; // Safety limit
+        var currentBatch = 0;
+        
+        // Create a simple query vector (not all zeros)
+        var queryVector = new float[_vectorDimension];
+        for (int i = 0; i < Math.Min(10, _vectorDimension); i++)
+        {
+            queryVector[i] = 0.1f; // Small non-zero values
         }
         
-        return documentIds;
+        while (hasMoreResults && currentBatch < maxBatches)
+        {
+            try
+            {
+                Console.WriteLine($"DEBUG: Getting IDs batch {currentBatch + 1}");
+                
+                var searchResults = _collection.SearchAsync(queryVector, batchSize);
+                var batchCount = 0;
+                var seenIds = new HashSet<string>();
+                
+                await foreach (var result in searchResults.ConfigureAwait(false))
+                {
+                    if (!seenIds.Contains(result.Record.Id))
+                    {
+                        allDocumentIds.Add(result.Record.Id);
+                        seenIds.Add(result.Record.Id);
+                        batchCount++;
+                    }
+                }
+                
+                hasMoreResults = batchCount == batchSize;
+                currentBatch++;
+                
+                Console.WriteLine($"DEBUG: Batch {currentBatch} found {batchCount} unique document IDs");
+                
+                if (batchCount == 0)
+                {
+                    hasMoreResults = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"DEBUG: Batch ID search failed: {ex.Message}");
+                hasMoreResults = false;
+            }
+        }
+        
+        // Remove duplicates and return
+        var uniqueIds = allDocumentIds.Distinct().ToList();
+        Console.WriteLine($"DEBUG: Batched search found {uniqueIds.Count} unique document IDs");
+        return uniqueIds;
     }
 
     public async Task DeleteDocumentAsync(string documentId)
@@ -255,29 +462,41 @@ public class SqliteVectorStoreProvider : IVectorStore
     public async Task<IEnumerable<(string DocumentId, IDictionary<string, object>? Metadata)>> GetAllDocumentsMetadataAsync()
     {
         var results = new List<(string DocumentId, IDictionary<string, object>? Metadata)>();
-        var vectorDimension = 768;
-        var dummyVector = new float[vectorDimension];
         
         try
         {
-            var searchResults = _collection.SearchAsync(dummyVector, int.MaxValue);
-            await foreach (var result in searchResults.ConfigureAwait(false))
+            // Get document IDs first using a smaller batch approach
+            var documentIds = await GetDocumentIdsAsync();
+            Console.WriteLine($"DEBUG: Retrieved {documentIds.Count()} document IDs");
+            
+            // Then retrieve metadata for each document individually
+            var processedCount = 0;
+            foreach (var documentId in documentIds)
             {
-                IDictionary<string, object>? metadata = null;
-                if (!string.IsNullOrEmpty(result.Record.MetaJson))
+                try
                 {
-                    try
+                    var metadata = await GetDocumentMetadataAsync(documentId);
+                    results.Add((documentId, metadata));
+                    processedCount++;
+                    
+                    if (processedCount % 100 == 0)
                     {
-                        metadata = JsonSerializer.Deserialize<Dictionary<string, object>>(result.Record.MetaJson);
+                        Console.WriteLine($"DEBUG: Processed {processedCount} documents");
                     }
-                    catch { /* ignore deserialization errors */ }
                 }
-                results.Add((result.Record.Id, metadata));
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"DEBUG: Error getting metadata for {documentId}: {ex.Message}");
+                    results.Add((documentId, null));
+                }
             }
+            
+            Console.WriteLine($"DEBUG: Successfully processed {processedCount} documents");
         }
         catch (Exception ex)
         {
-            // Return empty list if search fails
+            Console.WriteLine($"DEBUG: Error in GetAllDocumentsMetadataAsync: {ex.Message}");
+            Console.WriteLine($"DEBUG: Exception type: {ex.GetType().Name}");
         }
         
         return results;
